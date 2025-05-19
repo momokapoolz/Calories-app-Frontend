@@ -1,10 +1,11 @@
 import type { Metadata } from 'next'
 import './globals.css'
 
+import { MainNav } from "@/components/main-nav"
+
 export const metadata: Metadata = {
-  title: 'v0 App',
-  description: 'Created with v0',
-  generator: 'v0.dev',
+  title: 'NutriTrack - Calorie and Nutrition Tracker',
+  description: 'Track your calories, nutrition, and exercise with NutriTrack',
 }
 
 export default function RootLayout({
@@ -14,7 +15,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body className="min-h-screen bg-background">{children}</body>
     </html>
   )
 }
