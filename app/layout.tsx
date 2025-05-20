@@ -1,7 +1,10 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import { Inter } from "next/font/google"
+import { AuthWrapper } from "@/components/auth-wrapper"
+import { ThemeProvider } from "@/components/theme-provider"
 
-import { MainNav } from "@/components/main-nav"
+const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: 'NutriTrack - Calorie and Nutrition Tracker',
@@ -15,7 +18,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="min-h-screen bg-background">{children}</body>
+      <body className={`${inter.className} min-h-screen bg-background`}>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <AuthWrapper>{children}</AuthWrapper>
+        </ThemeProvider>
+      </body>
     </html>
   )
 }

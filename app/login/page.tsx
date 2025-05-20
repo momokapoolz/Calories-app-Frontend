@@ -1,11 +1,12 @@
-\"use client"
+"use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
+import { AxiosError } from "axios"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -29,6 +30,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Utensils } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { loginWithToken, loginWithCookie } from "@/lib/auth-service"
+import { useAuth } from "@/contexts/auth-context"
+import { logNetworkError, logEnvironmentInfo } from "@/lib/network-debug"
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -39,9 +42,22 @@ type LoginFormValues = z.infer<typeof loginSchema>
 
 export default function LoginPage() {
   const router = useRouter()
+  const { isAuthenticated, refreshAuth } = useAuth()
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [loginType, setLoginType] = useState<"token" | "cookie">("token")
+  
+  // On first render, log environment info to help diagnose issues
+  useEffect(() => {
+    logEnvironmentInfo()
+  }, [])
+  
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.push("/dashboard")
+    }
+  }, [isAuthenticated, router])
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -62,11 +78,29 @@ export default function LoginPage() {
         await loginWithCookie(data)
       }
       
+      // Refresh auth context
+      await refreshAuth()
+      
       // Redirect to dashboard
-      router.push("/")
+      router.push("/dashboard")
     } catch (err) {
       console.error("Login error:", err)
-      setError(err instanceof Error ? err.message : "An unexpected error occurred")
+      
+      // Log detailed network error information
+      logNetworkError(err, 'Login')
+      
+      // Handle Axios-specific errors
+      if (err instanceof AxiosError) {
+        if (!err.response) {
+          setError("Network error: Cannot connect to the server. Please check your internet connection or contact support.")
+        } else {
+          setError(err.response.data?.message || err.message || "Authentication failed")
+        }
+      } else if (err instanceof Error) {
+        setError(err.message)
+      } else {
+        setError("An unexpected error occurred")
+      }
     } finally {
       setIsLoading(false)
     }

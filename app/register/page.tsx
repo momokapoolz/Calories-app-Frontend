@@ -1,12 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 import { registerUser } from "@/lib/auth-service"
+import { useAuth } from "@/contexts/auth-context"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -52,8 +53,16 @@ type RegisterFormValues = z.infer<typeof registerSchema>
 
 export default function RegisterPage() {
   const router = useRouter()
+  const { isAuthenticated, refreshAuth } = useAuth()
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.push("/dashboard")
+    }
+  }, [isAuthenticated, router])
 
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
@@ -77,8 +86,11 @@ export default function RegisterPage() {
     try {
       await registerUser(data)
       
+      // Refresh auth context
+      await refreshAuth()
+      
       // Redirect to dashboard
-      router.push("/")
+      router.push("/dashboard")
     } catch (err) {
       console.error("Registration error:", err)
       setError(err instanceof Error ? err.message : "An unexpected error occurred")

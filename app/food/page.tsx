@@ -1,15 +1,21 @@
+"use client"
+
 import Link from "next/link"
-import { CalendarDays, ChevronDown, Filter, Plus, Search, Utensils } from "lucide-react"
+import { CalendarDays, ChevronDown, Filter, Plus, Search, Utensils, LogOut } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { FoodItem } from "@/components/food-item"
+import { ProtectedRoute } from "@/components/protected-route"
+import { useAuth } from "@/contexts/auth-context"
 
 export default function FoodPage() {
+  const { user, logout } = useAuth()
   return (
-    <div className="flex min-h-screen flex-col">
+    <ProtectedRoute>
+      <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-10 border-b bg-background">
         <div className="container flex h-16 items-center justify-between py-4">
           <div className="flex items-center gap-2">
@@ -38,15 +44,21 @@ export default function FoodPage() {
               <CalendarDays className="mr-2 h-4 w-4" />
               Today
             </Button>
-            <Button variant="ghost" size="icon" className="rounded-full">
-              <img
-                src="/placeholder.svg?height=32&width=32"
-                alt="Avatar"
-                className="rounded-full"
-                height={32}
-                width={32}
-              />
-            </Button>
+            <div className="flex items-center gap-2">
+              {user && <span className="text-sm font-medium">{user.name}</span>}
+              <Button variant="ghost" size="icon" className="rounded-full">
+                <img
+                  src="/placeholder.svg?height=32&width=32"
+                  alt="Avatar"
+                  className="rounded-full"
+                  height={32}
+                  width={32}
+                />
+              </Button>
+              <Button variant="ghost" size="icon" onClick={logout}>
+                <LogOut className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </div>
       </header>
@@ -192,5 +204,6 @@ export default function FoodPage() {
         </div>
       </main>
     </div>
+    </ProtectedRoute>
   )
 }
