@@ -7,8 +7,10 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1
  */
 export async function POST(request: Request) {
   try {
+    console.log('Login API route called');
     const body = await request.json();
     
+    console.log('Attempting login at:', `${API_URL}/login`);
     // Forward the request to the actual API
     const response = await fetch(`${API_URL}/login`, {
       method: 'POST',
@@ -21,6 +23,7 @@ export async function POST(request: Request) {
     
     // Get response data
     const data = await response.json();
+    console.log('Login response status:', response.status);
     
     // Forward the response back to the client
     return NextResponse.json(data, { status: response.status });

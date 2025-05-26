@@ -1,0 +1,23 @@
+{
+  "mcpServers": {
+    "Database postgresql calories app": {
+      "type": "postgresql",
+      "host": "localhost",
+      "port": 5433,
+      "database": "calories_app",
+      "user": "postgres",
+      "password": "1234",
+      "ssl": false,
+      "url": "postgresql://postgres:1234d@localhost:5433/calories_app"
+    },
+    "Redis calories app auth": {
+      "type": "redis",
+      "host": "localhost",
+      "port": 6379,
+      "database": "caloapp-auth-redis",
+      "password": "1234",
+      "url": "redis://:1234@localhost:6379/0"
+    }
+  }
+} 
+

@@ -2,21 +2,10 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
-import { z } from "zod"
-import { AxiosError } from "axios"
-
+import * as z from "zod"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
 import {
   Form,
   FormControl,
@@ -26,40 +15,27 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Utensils } from "lucide-react"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { loginWithToken, loginWithCookie } from "@/lib/auth-service"
+import { useToast } from "@/components/ui/use-toast"
 import { useAuth } from "@/contexts/auth-context"
-import { logNetworkError, logEnvironmentInfo } from "@/lib/network-debug"
+import { Utensils } from "lucide-react"
 
 const loginSchema = z.object({
-  email: z.string().email("Please enter a valid email address"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
+  email: z.string().email("Please enter a valid email"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
 })
 
-type LoginFormValues = z.infer<typeof loginSchema>
+type LoginData = z.infer<typeof loginSchema>
+
+// Your backend base URL
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
 
 export default function LoginPage() {
-  const router = useRouter()
-  const { isAuthenticated, refreshAuth } = useAuth()
-  const [error, setError] = useState<string | null>(null)
+  const { login } = useAuth()
+  const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
-  const [loginType, setLoginType] = useState<"token" | "cookie">("token")
-  
-  // On first render, log environment info to help diagnose issues
-  useEffect(() => {
-    logEnvironmentInfo()
-  }, [])
-  
-  // Redirect if already authenticated
-  useEffect(() => {
-    if (isAuthenticated) {
-      router.push("/dashboard")
-    }
-  }, [isAuthenticated, router])
+  const [mounted, setMounted] = useState(false)
 
-  const form = useForm<LoginFormValues>({
+  const form = useForm<LoginData>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
       email: "",
@@ -67,116 +43,143 @@ export default function LoginPage() {
     },
   })
 
-  async function onSubmit(data: LoginFormValues) {
-    setIsLoading(true)
-    setError(null)
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  const onSubmit = async (data: LoginData) => {
+    if (!mounted) return; // Prevent submission if not mounted
     
     try {
-      if (loginType === "token") {
-        await loginWithToken(data)
-      } else {
-        await loginWithCookie(data)
+      setIsLoading(true)
+
+      console.log('Attempting login through Next.js API route');
+      const loginResponse = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      const responseData = await loginResponse.json();
+      console.log('Login response:', responseData);
+
+      if (!loginResponse.ok) {
+        throw new Error(responseData.message || responseData.error || 'Invalid email or password');
       }
-      
-      // Refresh auth context
-      await refreshAuth()
-      
-      // Redirect to dashboard
-      router.push("/dashboard")
-    } catch (err) {
-      console.error("Login error:", err)
-      
-      // Log detailed network error information
-      logNetworkError(err, 'Login')
-      
-      // Handle Axios-specific errors
-      if (err instanceof AxiosError) {
-        if (!err.response) {
-          setError("Network error: Cannot connect to the server. Please check your internet connection or contact support.")
-        } else {
-          setError(err.response.data?.message || err.message || "Authentication failed")
+
+      // If login successful, we should have user data and tokens
+      if (responseData.status === "success" && responseData.data?.user) {
+        // Store tokens if needed
+        if (responseData.data.tokens) {
+          localStorage.setItem('accessToken', responseData.data.tokens.access_token_id.toString());
+          localStorage.setItem('refreshToken', responseData.data.tokens.refresh_token_id.toString());
         }
-      } else if (err instanceof Error) {
-        setError(err.message)
+
+        // Set user in auth context
+        login(responseData.data.user);
+        
+        toast({
+          title: "Success",
+          description: responseData.message || "Logged in successfully",
+        });
       } else {
-        setError("An unexpected error occurred")
+        throw new Error('Login failed: Invalid server response');
       }
+
+    } catch (error) {
+      console.error("Login error:", error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "An error occurred during login",
+        variant: "destructive",
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
   }
 
-  return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 p-4">
-      <div className="flex items-center gap-2 mb-8">
-        <Utensils className="h-8 w-8 text-green-600" />
-        <h1 className="text-2xl font-bold">NutriTrack</h1>
-      </div>
-
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">Sign in</CardTitle>
-          <CardDescription className="text-center">
-            Enter your email and password to access your account
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Tabs value={loginType} onValueChange={(value) => setLoginType(value as "token" | "cookie")} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-4">
-              <TabsTrigger value="token">Token Auth</TabsTrigger>
-              <TabsTrigger value="cookie">Cookie Auth</TabsTrigger>
-            </TabsList>
-
-            {error && (
-              <Alert variant="destructive" className="mb-4">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email</FormLabel>
-                      <FormControl>
-                        <Input placeholder="you@example.com" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Password</FormLabel>
-                      <FormControl>
-                        <Input type="password" placeholder="••••••••" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? "Signing in..." : "Sign in"}
-                </Button>
-              </form>
-            </Form>
-          </Tabs>
-        </CardContent>
-        <CardFooter className="flex flex-col space-y-4">
-          <div className="text-sm text-center text-muted-foreground">
-            Don&apos;t have an account?{" "}
-            <Link href="/register" className="text-primary underline underline-offset-4 hover:text-primary/90">
-              Sign up
-            </Link>
+  // Show a loading state or nothing during SSR
+  if (!mounted) {
+    return (
+      <div className="container flex h-screen w-screen flex-col items-center justify-center">
+        <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
+          <div className="flex flex-col space-y-2 text-center">
+            <div className="flex items-center justify-center gap-2 mb-4">
+              <Utensils className="h-8 w-8 text-green-600" />
+              <h1 className="text-2xl font-bold">NutriTrack</h1>
+            </div>
           </div>
-        </CardFooter>
-      </Card>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container flex h-screen w-screen flex-col items-center justify-center">
+      <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
+        <div className="flex flex-col space-y-2 text-center">
+          <div className="flex items-center justify-center gap-2 mb-4">
+            <Utensils className="h-8 w-8 text-green-600" />
+            <h1 className="text-2xl font-bold">NutriTrack</h1>
+          </div>
+          <h2 className="text-2xl font-semibold tracking-tight">
+            Welcome back
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Enter your email and password to sign in to your account
+          </p>
+        </div>
+
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="email"
+                      placeholder="m@example.com"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Password</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="password"
+                      placeholder="Enter your password"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? "Signing in..." : "Sign In"}
+            </Button>
+          </form>
+        </Form>
+
+        <div className="text-center text-sm">
+          <Link href="/register" className="text-primary hover:underline">
+            Don't have an account? Sign up
+          </Link>
+        </div>
+      </div>
     </div>
   )
 }

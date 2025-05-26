@@ -1,38 +1,37 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { isAuthenticated } from "@/lib/auth-service"
+import { useAuth } from "@/contexts/auth-context"
 
 interface ProtectedRouteProps {
   children: React.ReactNode
 }
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
+  const { isAuthenticated, isLoading } = useAuth()
   const router = useRouter()
-  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    // Check if the user is authenticated
-    const authStatus = isAuthenticated()
-    
-    if (!authStatus) {
-      // Redirect to login if not authenticated
+    if (!isLoading && !isAuthenticated) {
       router.push("/login")
-    } else {
-      setIsLoading(false)
     }
-  }, [])
+  }, [isLoading, isAuthenticated, router])
 
-  // Show loading state while checking authentication
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-green-600"></div>
+      <div className="flex h-screen w-screen items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-lg font-medium">Loading...</h2>
+          <p className="text-sm text-muted-foreground">Please wait while we verify your session</p>
+        </div>
       </div>
     )
   }
 
-  // Render children if authenticated
+  if (!isAuthenticated) {
+    return null
+  }
+
   return <>{children}</>
 }

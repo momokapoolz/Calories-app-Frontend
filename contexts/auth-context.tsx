@@ -2,200 +2,149 @@
 
 import { createContext, useContext, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { getCurrentUser, isAuthenticated, logout, refreshToken } from "@/lib/auth-service"
-
-// Check if we're running on the client side
-const isClient = typeof window !== 'undefined';
 
 interface User {
   id: number
   name: string
   email: string
-  role: string
 }
 
 interface AuthContextType {
   user: User | null
-  isLoading: boolean
   isAuthenticated: boolean
+  isLoading: boolean
+  login: (user: User) => void
   logout: () => Promise<void>
-  refreshAuth: () => Promise<void>
 }
 
-// Create a default auth context for SSR/initial render
-export const defaultAuthValues: AuthContextType = {
+const AuthContext = createContext<AuthContextType>({
   user: null,
-  isLoading: false,
   isAuthenticated: false,
+  isLoading: true,
+  login: () => {},
   logout: async () => {},
-  refreshAuth: async () => {},
-};
-
-const AuthContext = createContext<AuthContextType>(defaultAuthValues);
+})
 
 export interface AuthProviderProps {
-  children: React.ReactNode;
-  skipInitialization?: boolean;
+  children: React.ReactNode
 }
 
-export function AuthProvider({ 
-  children,
-  skipInitialization = false
-}: AuthProviderProps) {
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
+
+export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null)
-  const [isLoading, setIsLoading] = useState(!skipInitialization)
-  const [authStatus, setAuthStatus] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [mounted, setMounted] = useState(false)
   const router = useRouter()
 
-  // Check auth status - only run on client side
-  const checkAuthStatus = async () => {
+  // Check auth status on mount and after window focus
+  const checkAuth = async () => {
     try {
-      // First check local storage (faster)
-      const authenticated = isAuthenticated()
-      setAuthStatus(authenticated)
-
-      if (authenticated) {
-        // Get current user from localStorage
-        const currentUser = getCurrentUser()
-        setUser(currentUser)
+      // Get the access token from localStorage
+      const token = localStorage.getItem('accessToken')
+      if (!token) {
+        setUser(null)
+        return
       }
-      
-      // Then, if we have a cookie, also check with server
-      if (document.cookie.includes('jwt-id')) {
-        try {
-          const response = await fetch('/api/auth/status');
-          if (response.ok) {
-            const data = await response.json();
-            if (data.authenticated) {
-              setAuthStatus(true);
-              // Update user if provided in response
-              if (data.user) {
-                setUser(data.user);
-              }
-            }
-          }
-        } catch (error) {
-          console.error('Error checking auth status:', error);
+
+      const response = await fetch(`${API_URL}/auth/status`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json'
         }
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        if (data.authenticated && data.user) {
+          setUser(data.user)
+        } else {
+          setUser(null)
+          localStorage.removeItem('accessToken')
+          localStorage.removeItem('refreshToken')
+        }
+      } else {
+        setUser(null)
+        localStorage.removeItem('accessToken')
+        localStorage.removeItem('refreshToken')
       }
     } catch (error) {
-      console.error('Auth check error:', error);
+      console.error('Error checking auth status:', error)
+      setUser(null)
+      localStorage.removeItem('accessToken')
+      localStorage.removeItem('refreshToken')
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  };
+  }
 
-  // Initialize auth state - only run if not skipping initialization
+  // Only run effect on client side
   useEffect(() => {
-    // Skip if requested (used for SSR)
-    if (skipInitialization) {
-      return;
+    setMounted(true)
+    checkAuth()
+
+    // Add window focus event listener
+    const handleFocus = () => {
+      checkAuth()
     }
-    
-    // Only run on client side
-    if (isClient) {
-      checkAuthStatus();
-    } else {
-      // On server, just mark as not loading to avoid hydration issues
-      setIsLoading(false);
+
+    window.addEventListener('focus', handleFocus)
+    return () => {
+      window.removeEventListener('focus', handleFocus)
     }
-  }, [skipInitialization]);
+  }, [])
 
-  // Set up token refresh interval - only on client side and if not skipping
-  useEffect(() => {
-    if (!isClient || !authStatus || skipInitialization) return;
+  const login = (userData: User) => {
+    setUser(userData)
+    router.push("/")
+  }
 
-    // Refresh token every 50 minutes (3000000ms)
-    const refreshInterval = setInterval(async () => {
-      try {
-        if (document.cookie.includes('jwt-id')) {
-          await refreshToken();
-          // Re-check auth status after token refresh
-          checkAuthStatus();
-        }
-      } catch (error) {
-        console.error('Error refreshing token:', error);
-        await handleLogout();
-      }
-    }, 3000000);
-
-    return () => clearInterval(refreshInterval);
-  }, [authStatus, skipInitialization]);
-
-  const handleLogout = async () => {
+  const logout = async () => {
     try {
-      // Set loading state to prevent multiple clicks
-      setIsLoading(true);
-      
-      // Call logout API
-      await logout();
-      
-      // Update state
-      setUser(null);
-      setAuthStatus(false);
-      
-      // Use replace instead of push to prevent back button issues
-      router.replace('/login');
-    } catch (error) {
-      console.error('[Auth Context] Logout error:', error);
-      
-      // Try the fallback method if main logout fails
-      try {
-        console.log('[Auth Context] Using fallback logout method');
-        
-        // Call backup clear-session endpoint
-        await fetch('/api/auth/clear-session', {
+      const token = localStorage.getItem('accessToken')
+      if (token) {
+        await fetch(`${API_URL}/auth/logout`, {
           method: 'POST',
-          credentials: 'include'
-        });
-      } catch (fallbackError) {
-        console.error('[Auth Context] Fallback logout also failed:', fallbackError);
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json'
+          }
+        })
       }
-      
-      // Still update state and redirect even if API call fails
-      setUser(null);
-      setAuthStatus(false);
-      router.replace('/login');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const refreshAuth = async () => {
-    if (!isClient || skipInitialization) return;
-    
-    try {
-      await checkAuthStatus();
     } catch (error) {
-      console.error('Error refreshing auth:', error);
-      await handleLogout();
+      console.error('Logout error:', error)
+    } finally {
+      setUser(null)
+      localStorage.removeItem('accessToken')
+      localStorage.removeItem('refreshToken')
+      router.push("/login")
     }
-  };
+  }
+
+  // Prevent hydration issues by not rendering until mounted
+  if (!mounted) {
+    return null
+  }
 
   return (
     <AuthContext.Provider
       value={{
         user,
+        isAuthenticated: !!user,
         isLoading,
-        isAuthenticated: authStatus,
-        logout: handleLogout,
-        refreshAuth,
+        login,
+        logout,
       }}
     >
       {children}
     </AuthContext.Provider>
-  );
+  )
 }
 
-export function useAuth() {
+export const useAuth = () => {
   const context = useContext(AuthContext)
-  
-  // This should never happen now that we're using defaultAuthValues,
-  // but keeping the check as a safeguard
   if (context === undefined) {
-    console.error('Auth context is undefined. Make sure useAuth is used within an AuthProvider');
-    throw new Error('useAuth must be used within an AuthProvider')
+    throw new Error("useAuth must be used within an AuthProvider")
   }
-  
   return context
 }

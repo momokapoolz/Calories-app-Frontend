@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { CalendarDays, ChevronDown, Filter, Plus, Search, Utensils, LogOut } from "lucide-react"
+import { CalendarDays, ChevronDown, Filter, Plus, Search, Utensils, LogOut, Trash2, Edit } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -10,9 +10,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { FoodItem } from "@/components/food-item"
 import { ProtectedRoute } from "@/components/protected-route"
 import { useAuth } from "@/contexts/auth-context"
+import { useFood } from "./hooks/useFood"
+import { FoodForm } from "./components/FoodForm"
+import { useState } from "react"
 
 export default function FoodPage() {
   const { user, logout } = useAuth()
+  const { foods, loading, error, addFood, editFood, removeFood } = useFood()
+  const [searchTerm, setSearchTerm] = useState("")
+
+  const filteredFoods = foods.filter(food => 
+    food.name.toLowerCase().includes(searchTerm.toLowerCase())
+  )
+
   return (
     <ProtectedRoute>
       <div className="flex min-h-screen flex-col">
@@ -67,15 +77,18 @@ export default function FoodPage() {
           <div className="flex flex-col gap-6">
             <div className="flex items-center justify-between">
               <h1 className="text-2xl font-bold">Food Database</h1>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Custom Food
-              </Button>
+              <FoodForm onSubmit={addFood} />
             </div>
             <div className="flex items-center gap-2">
               <div className="relative flex-1">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input type="search" placeholder="Search foods..." className="pl-8" />
+                <Input 
+                  type="search" 
+                  placeholder="Search foods..." 
+                  className="pl-8" 
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
               </div>
               <Button variant="outline" size="icon">
                 <Filter className="h-4 w-4" />
@@ -85,6 +98,11 @@ export default function FoodPage() {
                 <ChevronDown className="ml-2 h-4 w-4" />
               </Button>
             </div>
+            {error && (
+              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                {error}
+              </div>
+            )}
             <Tabs defaultValue="all">
               <TabsList>
                 <TabsTrigger value="all">All Foods</TabsTrigger>
@@ -95,34 +113,42 @@ export default function FoodPage() {
               <TabsContent value="all" className="mt-4">
                 <Card>
                   <CardHeader>
-                    <CardTitle>Common Foods</CardTitle>
+                    <CardTitle>All Foods</CardTitle>
                     <CardDescription>Select a food to add to your diary</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid gap-4">
-                      <FoodItem name="Chicken Breast" serving="100g" calories={165} protein={31} carbs={0} fat={3.6} />
-                      <FoodItem
-                        name="Brown Rice"
-                        serving="100g cooked"
-                        calories={112}
-                        protein={2.6}
-                        carbs={23}
-                        fat={0.9}
-                      />
-                      <FoodItem name="Avocado" serving="1 medium" calories={240} protein={3} carbs={12} fat={22} />
-                      <FoodItem name="Salmon" serving="100g" calories={208} protein={20} carbs={0} fat={13} />
-                      <FoodItem
-                        name="Sweet Potato"
-                        serving="1 medium"
-                        calories={112}
-                        protein={2}
-                        carbs={26}
-                        fat={0.1}
-                      />
-                      <FoodItem name="Greek Yogurt" serving="170g" calories={100} protein={17} carbs={6} fat={0.7} />
-                      <FoodItem name="Spinach" serving="100g" calories={23} protein={2.9} carbs={3.6} fat={0.4} />
-                      <FoodItem name="Banana" serving="1 medium" calories={105} protein={1.3} carbs={27} fat={0.4} />
-                    </div>
+                    {loading ? (
+                      <div className="text-center py-4">Loading...</div>
+                    ) : filteredFoods.length > 0 ? (
+                      <div className="grid gap-4">
+                        {filteredFoods.map((food) => (
+                          <div key={food.id} className="flex items-center justify-between p-4 border rounded">
+                            <div>
+                              <h3 className="font-medium">{food.name}</h3>
+                              <p className="text-sm text-muted-foreground">
+                                Serving: {food.serving_size_gram}g | Source: {food.source}
+                              </p>
+                            </div>
+                            <div className="flex gap-2">
+                              <FoodForm 
+                                food={food} 
+                                onSubmit={(data) => editFood(food.id!, data)}
+                                buttonText={<Edit className="h-4 w-4" />}
+                              />
+                              <Button 
+                                variant="destructive" 
+                                size="icon"
+                                onClick={() => removeFood(food.id!)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-4">No foods found</div>
+                    )}
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -139,10 +165,7 @@ export default function FoodPage() {
                       </div>
                       <h3 className="mb-2 text-lg font-medium">No custom foods yet</h3>
                       <p className="mb-4 text-sm text-muted-foreground">Add your own foods to make tracking easier</p>
-                      <Button>
-                        <Plus className="mr-2 h-4 w-4" />
-                        Add Custom Food
-                      </Button>
+                      <FoodForm onSubmit={addFood} />
                     </div>
                   </CardContent>
                 </Card>

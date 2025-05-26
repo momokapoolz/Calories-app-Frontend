@@ -2,6 +2,7 @@
 
 import React from "react"
 import { AuthProvider } from "@/contexts/auth-context"
+import { Toaster } from "@/components/ui/toaster"
 
 interface AuthWrapperProps {
   children: React.ReactNode
@@ -18,11 +19,16 @@ export function AuthWrapper({ children }: AuthWrapperProps) {
     setMounted(true)
   }, [])
 
+  if (!mounted) {
+    return null
+  }
+
   // Always render with AuthProvider to avoid "useAuth must be used within an AuthProvider" error
   // But use different initialization based on mounting state
   return (
-    <AuthProvider skipInitialization={!mounted}>
+    <AuthProvider>
       {children}
+      <Toaster />
     </AuthProvider>
   )
 } 

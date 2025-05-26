@@ -3,33 +3,19 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useRouter, usePathname } from "next/navigation"
-import { CalendarDays, Utensils } from "lucide-react"
+import { CalendarDays, Utensils, Apple } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { isAuthenticated, getCurrentUser, logout } from "@/lib/auth-service"
+import { useAuth } from "@/contexts/auth-context"
 
 export function MainNav() {
   const router = useRouter()
   const pathname = usePathname()
-  const [user, setUser] = useState<any>(null)
-  const [authenticated, setAuthenticated] = useState(false)
-
-  useEffect(() => {
-    // Check authentication status on client side
-    const authStatus = isAuthenticated()
-    setAuthenticated(authStatus)
-    
-    if (authStatus) {
-      setUser(getCurrentUser())
-    }
-  }, [pathname])
+  const { user, isAuthenticated, logout } = useAuth()
 
   const handleLogout = async () => {
     try {
       await logout()
-      setAuthenticated(false)
-      setUser(null)
-      router.push("/login")
     } catch (error) {
       console.error("Logout error:", error)
     }
@@ -48,6 +34,13 @@ export function MainNav() {
             className={`text-sm font-medium ${pathname === "/" ? "text-foreground" : "text-muted-foreground"}`}
           >
             Dashboard
+          </Link>
+          <Link 
+            href="/meal" 
+            className={`text-sm font-medium flex items-center gap-1 ${pathname.startsWith("/meal") ? "text-foreground" : "text-muted-foreground"}`}
+          >
+            <Apple className="h-4 w-4" />
+            Meals
           </Link>
           <Link 
             href="/food" 
@@ -79,7 +72,7 @@ export function MainNav() {
             <CalendarDays className="mr-2 h-4 w-4" />
             Today
           </Button>
-          {authenticated ? (
+          {isAuthenticated ? (
             <div className="flex items-center gap-2">
               <Button variant="ghost" size="sm" onClick={handleLogout}>
                 Logout
