@@ -5,6 +5,7 @@ import Link from "next/link"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import * as z from "zod"
+import axios from "axios"
 import { Button } from "@/components/ui/button"
 import {
   Form,
@@ -51,23 +52,17 @@ export default function LoginPage() {
     if (!mounted) return; // Prevent submission if not mounted
     
     try {
-      setIsLoading(true)
-
+      setIsLoading(true);
+      
       console.log('Attempting login through Next.js API route');
-      const loginResponse = await fetch('/api/auth/login', {
-        method: 'POST',
+      const loginResponse = await axios.post('/api/auth/login', data, {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(data),
       });
 
-      const responseData = await loginResponse.json();
+      const responseData = loginResponse.data;
       console.log('Login response:', responseData);
-
-      if (!loginResponse.ok) {
-        throw new Error(responseData.message || responseData.error || 'Invalid email or password');
-      }
 
       // If login successful, we should have user data and tokens
       if (responseData.status === "success" && responseData.data?.user) {
@@ -86,13 +81,21 @@ export default function LoginPage() {
         });
       } else {
         throw new Error('Login failed: Invalid server response');
-      }
-
-    } catch (error) {
+      }    } catch (error: any) {
       console.error("Login error:", error);
+      
+      let errorMessage = "An error occurred during login";
+      
+      // Handle axios error responses
+      if (error.response) {
+        errorMessage = error.response.data?.message || error.response.data?.error || 'Invalid email or password';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "An error occurred during login",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

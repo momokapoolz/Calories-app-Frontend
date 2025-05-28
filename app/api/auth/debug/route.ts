@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import axios from 'axios';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
 
@@ -24,18 +25,16 @@ export async function GET(request: Request) {
     let apiResponse = null;
     
     try {
-      const apiCheck = await fetch(healthCheckUrl, { 
-        method: 'GET',
+      const apiCheck = await axios.get(healthCheckUrl, { 
         headers: { 'Accept': 'application/json' },
-        // Set a short timeout
-        signal: AbortSignal.timeout(5000),
+        timeout: 5000,
       });
       
-      apiStatus = apiCheck.ok ? 'online' : 'error';
-      apiResponse = await apiCheck.text();
-    } catch (error) {
+      apiStatus = apiCheck.status === 200 ? 'online' : 'error';
+      apiResponse = apiCheck.data;
+    } catch (error: any) {
       apiStatus = 'offline';
-      apiResponse = (error as Error).message;
+      apiResponse = error.message;
     }
     
     // Return debug information

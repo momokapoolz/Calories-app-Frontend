@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import axios from 'axios';
 
 // Your backend base URL is http://localhost:8080/api/v1
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
@@ -46,14 +47,12 @@ export async function GET(request: Request) {
     timestamp: new Date().toISOString()
   };
 
-  try {
-    // Since we don't have a /health endpoint in the API docs, let's try /login endpoint
+  try {    // Since we don't have a /health endpoint in the API docs, let's try /login endpoint
     const testUrl = `${API_URL}/login`;
     console.log('Attempting to connect to API:', testUrl);
     
-    // Test connection to API
-    const testResponse = await fetch(testUrl, {
-      method: 'OPTIONS', // Use OPTIONS to avoid actual login attempt
+    // Test connection to API using axios
+    const testResponse = await axios.options(testUrl, {
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json'
@@ -65,7 +64,7 @@ export async function GET(request: Request) {
     debugInfo.connectivity.status = testResponse.status !== 0 ? 'connected' : 'error';
     
     try {
-      const responseText = await testResponse.text();
+      const responseText = testResponse.data;
       console.log('API test response:', responseText);
       
       debugInfo.connectivity.response = {

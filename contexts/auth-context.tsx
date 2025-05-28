@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
+import api from '@/lib/api-client'
 
 interface User {
   id: number
@@ -29,14 +30,11 @@ export interface AuthProviderProps {
   children: React.ReactNode
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
-
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [mounted, setMounted] = useState(false)
   const router = useRouter()
-
   // Check auth status on mount and after window focus
   const checkAuth = async () => {
     try {
@@ -47,22 +45,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
         return
       }
 
-      const response = await fetch(`${API_URL}/auth/status`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json'
-        }
-      })
+      const response = await api.get('/auth/status')
       
-      if (response.ok) {
-        const data = await response.json()
-        if (data.authenticated && data.user) {
-          setUser(data.user)
-        } else {
-          setUser(null)
-          localStorage.removeItem('accessToken')
-          localStorage.removeItem('refreshToken')
-        }
+      if (response.data.authenticated && response.data.user) {
+        setUser(response.data.user)
       } else {
         setUser(null)
         localStorage.removeItem('accessToken')
@@ -98,18 +84,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setUser(userData)
     router.push("/")
   }
-
   const logout = async () => {
     try {
       const token = localStorage.getItem('accessToken')
       if (token) {
-        await fetch(`${API_URL}/auth/logout`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json'
-          }
-        })
+        await api.post('/auth/logout')
       }
     } catch (error) {
       console.error('Logout error:', error)

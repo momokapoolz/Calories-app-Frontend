@@ -1,6 +1,7 @@
 /**
  * Network debug utilities
  */
+import axios from 'axios';
 
 // Check if we're running on the client side
 const isClient = typeof window !== 'undefined';
@@ -64,16 +65,11 @@ export async function checkApiHealth(apiUrl: string): Promise<boolean> {
   }
   
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
-    
-    const response = await fetch(`${apiUrl}/health`, {
-      method: 'GET',
-      signal: controller.signal,
+    const response = await axios.get(`${apiUrl}/health`, {
+      timeout: 5000,
     });
     
-    clearTimeout(timeoutId);
-    return response.ok;
+    return response.status === 200;
   } catch (error) {
     console.error('API health check failed:', error);
     return false;

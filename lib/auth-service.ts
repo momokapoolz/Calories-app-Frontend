@@ -2,7 +2,7 @@
  * Authentication service for handling API calls and token management
  */
 import api from './api-client';
-import { AxiosResponse, AxiosError } from 'axios';
+import axios, { AxiosResponse, AxiosError } from 'axios';
 
 // Check if we're running on the client side
 const isClient = typeof window !== 'undefined';
@@ -134,20 +134,13 @@ export async function loginWithToken(data: LoginData): Promise<LoginResponse> {
 
   try {
     // Use internal API route instead of direct Axios call to avoid CORS/network issues
-    const response = await fetch('/api/auth/login', {
-      method: 'POST',
+    const response = await axios.post('/api/auth/login', data, {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(data),
     });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || `Error: ${response.status}`);
-    }
-
-    const result = await response.json();
+    
+    const result = response.data;
     
     // Store authentication data
     if (result.data?.tokens) {
@@ -157,8 +150,14 @@ export async function loginWithToken(data: LoginData): Promise<LoginResponse> {
     }
 
     return result;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Login error:', error);
+    
+    // Handle axios error responses
+    if (error.response) {
+      throw new Error(error.response.data?.message || `Error: ${error.response.status}`);
+    }
+    
     throw error;
   }
 }
@@ -173,26 +172,24 @@ export async function loginWithCookie(data: LoginData): Promise<CookieLoginRespo
 
   try {
     // Use internal API route instead of direct Axios call
-    const response = await fetch('/api/auth/cookie-login', {
-      method: 'POST',
+    const response = await axios.post('/api/auth/cookie-login', data, {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(data),
     });
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || `Error: ${response.status}`);
-    }
-
-    return await response.json();
-  } catch (error) {
+    return response.data;
+  } catch (error: any) {
     console.error('Cookie login error:', error);
+    
+    // Handle axios error responses
+    if (error.response) {
+      throw new Error(error.response.data?.message || `Error: ${error.response.status}`);
+    }
+    
     throw error;
   }
 }
-
 /**
  * Refresh the access token using the refresh token
  */
@@ -234,11 +231,13 @@ export async function logout(): Promise<{ message: string }> {
     }
     
     // Use internal API route instead of direct Axios call
-    const response = await fetch('/api/auth/logout', {
-      method: 'POST',
-      headers,
-      // Include credentials for cookie-based auth
-      credentials: 'include'
+      // Use internal API route instead of direct Axios call
+    const response = await axios.post('/api/auth/logout', {}, {
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        ...(token && token.trim() !== '' ? { 'Authorization': `Bearer ${token}` } : {})      },
+      withCredentials: true // Include credentials for cookie-based auth
     });
 
     // Clear local storage
@@ -246,38 +245,22 @@ export async function logout(): Promise<{ message: string }> {
     safeLocalStorageRemove('refreshToken');
     safeLocalStorageRemove('user');
 
-    // Handle non-successful responses
-    if (!response.ok) {
-      let errorMessage = `Logout error: ${response.status}`;
-      
-      try {
-        const errorData = await response.json();
-        errorMessage = errorData.message || errorData.error || errorMessage;
-        console.error('[Logout] Error response:', errorData);
-      } catch (parseError) {
-        console.error('[Logout] Could not parse error response', parseError);
-      }
-      
-      throw new Error(errorMessage);
-    }
-
-    // Get successful response data
-    let responseData;
-    try {
-      responseData = await response.json();
-    } catch (parseError) {
-      console.log('[Logout] No JSON response, using default success message');
-      responseData = { message: "Logged out successfully" };
-    }
-
-    return responseData;
-  } catch (error) {
+    return response.data;
+  } catch (error: any) {
     // Still clear storage even if API call fails
     safeLocalStorageRemove('accessToken');
     safeLocalStorageRemove('refreshToken');
     safeLocalStorageRemove('user');
     
     console.error('[Logout] Error:', error);
+    
+    // Handle axios error responses
+    if (error.response) {
+      const errorMessage = error.response.data?.message || error.response.data?.error || `Logout error: ${error.response.status}`;
+      console.error('[Logout] Error response:', error.response.data);
+      throw new Error(errorMessage);
+    }
+    
     throw error; // Re-throw the error to allow the caller to handle it
   }
 }
