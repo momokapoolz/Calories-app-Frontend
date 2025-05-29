@@ -2,18 +2,21 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import { MealLog, CreateMealLog, UpdateMealLog } from '../types'
 import { api } from '@/lib/api'
+import { getErrorMessage } from '@/lib/utils'
 
 export const useMealLogs = () => {
-  const { token } = useAuth()
+  const { isAuthenticated } = useAuth()
   const [mealLogs, setMealLogs] = useState<MealLog[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const fetchMealLogs = async () => {
-    try {
+  // Get token from localStorage
+  const getToken = () => localStorage.getItem('accessToken')
+
+  const fetchMealLogs = async () => {    try {
       setLoading(true)
       const response = await api.get('/api/v1/meal-logs/user', {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${getToken()}` }
       })
       setMealLogs(response.data)
       setError(null)
@@ -49,9 +52,9 @@ export const useMealLogs = () => {
       })
       setMealLogs(prev => [...prev, response.data.meal_log])
       setError(null)
-      return response.data.meal_log
-    } catch (err) {
-      setError('Failed to create meal log')
+      return response.data.meal_log    } catch (err) {
+      const errorMessage = `Failed to create meal log: ${getErrorMessage(err)}`
+      setError(errorMessage)
       console.error('Error creating meal log:', err)
       throw err
     } finally {

@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import api from '@/lib/api-client'
+import { getErrorMessage } from '@/lib/utils'
 
 interface User {
   id: number
@@ -35,6 +36,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [isLoading, setIsLoading] = useState(true)
   const [mounted, setMounted] = useState(false)
   const router = useRouter()
+  
   // Check auth status on mount and after window focus
   const checkAuth = async () => {
     try {
@@ -42,20 +44,33 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const token = localStorage.getItem('accessToken')
       if (!token) {
         setUser(null)
-        return
-      }
+        return      }
 
-      const response = await api.get('/auth/status')
-      
-      if (response.data.authenticated && response.data.user) {
-        setUser(response.data.user)
+      // Use fetch for Next.js API routes (avoids baseURL conflicts)
+      const response = await fetch('/api/auth/status', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        if (data.authenticated && data.user) {
+          setUser(data.user)
+        } else {
+          setUser(null)
+          localStorage.removeItem('accessToken')
+          localStorage.removeItem('refreshToken')
+        }
       } else {
         setUser(null)
         localStorage.removeItem('accessToken')
         localStorage.removeItem('refreshToken')
       }
     } catch (error) {
-      console.error('Error checking auth status:', error)
+      console.error('Error checking auth status:', getErrorMessage(error))
       setUser(null)
       localStorage.removeItem('accessToken')
       localStorage.removeItem('refreshToken')
@@ -79,20 +94,40 @@ export function AuthProvider({ children }: AuthProviderProps) {
       window.removeEventListener('focus', handleFocus)
     }
   }, [])
-
   const login = (userData: User) => {
     setUser(userData)
     router.push("/")
   }
+
   const logout = async () => {
     try {
+      // Use fetch for Next.js API routes (avoids baseURL conflicts)
       const token = localStorage.getItem('accessToken')
-      if (token) {
-        await api.post('/auth/logout')
+      console.log('Attempting logout with token:', token ? 'Token present' : 'No token')
+      
+      const response = await fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token || ''}`,
+        },
+      })
+      
+      console.log('Logout response status:', response.status)
+      
+      // Don't throw error if logout API fails - we still want to logout locally
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.warn(`Logout API returned ${response.status}: ${errorText}, but continuing with local logout`)
+      } else {
+        console.log('Logout API call successful')
       }
     } catch (error) {
-      console.error('Logout error:', error)
+      console.warn('Logout API call failed, but continuing with local logout:', getErrorMessage(error))
+      // Continue with logout even if API call fails
     } finally {
+      // Always perform local logout regardless of API response
+      console.log('Performing local logout cleanup')
       setUser(null)
       localStorage.removeItem('accessToken')
       localStorage.removeItem('refreshToken')

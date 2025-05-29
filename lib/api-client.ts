@@ -45,19 +45,26 @@ if (isClient && axiosInstance) {
       return Promise.reject(error);
     }
   );
-
   // Response interceptor
   axiosInstance.interceptors.response.use(
     (response: AxiosResponse) => {
       return response;
     },
     async (error: AxiosError) => {
-      // Handle 401 Unauthorized errors (could add refresh token logic here)
+      // Handle different status codes
       if (error.response?.status === 401) {
         // Clear local storage on auth errors
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
         localStorage.removeItem('user');
+      } else if (error.response?.status === 400) {
+        // Log 400 errors for debugging
+        console.error('400 Bad Request:', {
+          url: error.config?.url,
+          method: error.config?.method,
+          data: error.config?.data,
+          response: error.response?.data,
+        });
       }
       
       return Promise.reject(error);
