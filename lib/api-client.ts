@@ -24,7 +24,7 @@ const axiosInstance = isClient
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
-      withCredentials: true,
+      withCredentials: true, // Re-enable since backend supports CORS with credentials
       timeout: 10000,
     })
   : null;

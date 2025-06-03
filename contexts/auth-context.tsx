@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import api from '@/lib/api-client'
+import axios from 'axios'
 import { getErrorMessage } from '@/lib/utils'
 
 interface User {
@@ -35,93 +35,166 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [mounted, setMounted] = useState(false)
-  const router = useRouter()
-  
-  // Check auth status on mount and after window focus
+  const router = useRouter()  // Check auth status on mount and after window focus
   const checkAuth = async () => {
     try {
+      setIsLoading(true)
+      
       // Get the access token from localStorage
       const token = localStorage.getItem('accessToken')
+      const userStr = localStorage.getItem('user')
+      
+      console.log('=== AUTH CHECK START ===')
+      console.log('Token present:', !!token)
+      console.log('Stored user:', userStr)
+      console.log('Token value (first 20 chars):', token?.substring(0, 20))
+      
       if (!token) {
+        console.log('No token found, setting user to null')
         setUser(null)
-        return      }
-
-      // Use fetch for Next.js API routes (avoids baseURL conflicts)
-      const response = await fetch('/api/auth/status', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        if (data.authenticated && data.user) {
-          setUser(data.user)
-        } else {
-          setUser(null)
-          localStorage.removeItem('accessToken')
-          localStorage.removeItem('refreshToken')
+        return
+      }      // First, try to restore user from localStorage if available
+      if (userStr) {
+        try {
+          const storedUser = JSON.parse(userStr)
+          console.log('Restoring user from localStorage:', storedUser)
+          setUser(storedUser)
+          
+          // Verify with backend in background, but don't wait for it to complete
+          // This allows the user to stay logged in even if backend is temporarily unavailable
+          console.log('Starting background token verification...')
+          verifyTokenWithBackend(token).catch(error => {
+            console.log('Background verification failed, but user remains logged in from localStorage')
+          })
+          return
+        } catch (e) {
+          console.log('Failed to parse stored user, removing from localStorage')
+          localStorage.removeItem('user')
         }
-      } else {
-        setUser(null)
-        localStorage.removeItem('accessToken')
-        localStorage.removeItem('refreshToken')
       }
-    } catch (error) {
-      console.error('Error checking auth status:', getErrorMessage(error))
+
+      // If no stored user, verify with backend
+      console.log('No stored user found, verifying with backend...')
+      await verifyTokenWithBackend(token)
+      
+    } catch (error: any) {
+      console.error('=== AUTH CHECK ERROR ===')
+      console.error('Error details:', getErrorMessage(error))
       setUser(null)
       localStorage.removeItem('accessToken')
       localStorage.removeItem('refreshToken')
+      localStorage.removeItem('user')
     } finally {
       setIsLoading(false)
+    }
+  }
+  const verifyTokenWithBackend = async (token: string) => {
+    try {
+      console.log('Verifying token with backend...')
+      console.log('Token to verify:', token?.substring(0, 20) + '...')     
+      console.log('Making direct request to backend:', `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1'}/auth/profile`)
+      
+      // Call backend directly with axios since api-client might be causing issues
+      const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1'}/auth/profile`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json'
+        },
+        timeout: 5000
+      })
+
+      console.log('Auth profile response status:', response.status)
+      console.log('Auth profile response data:', response.data)
+
+      // Backend returns user info directly, not wrapped in authenticated field
+      if (response.data && (response.data.user_id || response.data.id || response.data.email)) {
+        // Transform backend response to match our User interface
+        const userData = {
+          id: response.data.user_id || response.data.id,
+          name: response.data.name || response.data.email?.split('@')[0] || 'User',
+          email: response.data.email
+        }
+        console.log('User authenticated, setting user data:', userData)
+        setUser(userData)
+        // Store user data for next time
+        localStorage.setItem('user', JSON.stringify(userData))
+      } else {
+        console.log('User not authenticated according to server')
+        setUser(null)
+        localStorage.removeItem('accessToken')
+        localStorage.removeItem('refreshToken')
+        localStorage.removeItem('user')
+      }
+      console.log('=== BACKEND VERIFICATION END ===')
+    } catch (error: any) {
+      console.error('=== BACKEND VERIFICATION ERROR ===')
+      console.error('Full error object:', error)
+      console.error('Error message:', error?.message || 'No message')
+      console.error('Error name:', error?.name || 'No name')
+      console.error('Error stack:', error?.stack || 'No stack')
+      console.error('Backend verification failed:', {
+        message: error?.message || 'Unknown error',
+        status: error?.response?.status || 'No status',
+        data: error?.response?.data || 'No response data',
+        url: error?.config?.url || 'No URL',
+        headers: error?.config?.headers || 'No headers',
+        timeout: error?.code === 'ECONNABORTED' ? 'Request timed out' : 'No timeout',
+        networkError: error?.code === 'ENOTFOUND' || error?.code === 'ECONNREFUSED' ? 'Network connectivity issue' : 'Not a network error'
+      })
+      
+      // If it's a 401 error, clear the auth state
+      if (error?.response?.status === 401) {
+        console.log('401 error - clearing auth state')
+        setUser(null)
+        localStorage.removeItem('accessToken')
+        localStorage.removeItem('refreshToken')
+        localStorage.removeItem('user')
+      } else if (error?.code === 'ECONNABORTED' || error?.code === 'ENOTFOUND' || error?.code === 'ECONNREFUSED') {
+        // Network errors - keep user authenticated but log the issue
+        console.log('Network error - keeping user authenticated despite backend error')
+      } else {
+        // For other errors, also keep user authenticated - might be temporary
+        console.log('Other error - keeping user authenticated despite backend error')
+      }
     }
   }
 
   // Only run effect on client side
   useEffect(() => {
     setMounted(true)
-    checkAuth()
-
-    // Add window focus event listener
+    checkAuth()    // Add window focus event listener
     const handleFocus = () => {
       checkAuth()
     }
-
+    
     window.addEventListener('focus', handleFocus)
     return () => {
       window.removeEventListener('focus', handleFocus)
     }
   }, [])
+  
   const login = (userData: User) => {
     setUser(userData)
     router.push("/")
   }
-
+  
   const logout = async () => {
     try {
-      // Use fetch for Next.js API routes (avoids baseURL conflicts)
+      console.log('Attempting logout')
+      
+      // Use axios directly to call the backend logout endpoint
       const token = localStorage.getItem('accessToken')
-      console.log('Attempting logout with token:', token ? 'Token present' : 'No token')
-      
-      const response = await fetch('/api/auth/logout', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token || ''}`,
-        },
-      })
-      
-      console.log('Logout response status:', response.status)
-      
-      // Don't throw error if logout API fails - we still want to logout locally
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.warn(`Logout API returned ${response.status}: ${errorText}, but continuing with local logout`)
-      } else {
-        console.log('Logout API call successful')
+      if (token) {
+        await axios.post(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1'}/auth/logout`, {}, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json'
+          },
+          timeout: 5000
+        })
       }
+      
+      console.log('Logout API call successful')
     } catch (error) {
       console.warn('Logout API call failed, but continuing with local logout:', getErrorMessage(error))
       // Continue with logout even if API call fails
@@ -131,6 +204,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setUser(null)
       localStorage.removeItem('accessToken')
       localStorage.removeItem('refreshToken')
+      localStorage.removeItem('user')
       router.push("/login")
     }
   }

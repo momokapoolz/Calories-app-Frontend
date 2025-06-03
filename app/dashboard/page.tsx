@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { CalendarDays, ChevronRight, PieChart, Plus, Utensils, Weight, LogOut } from "lucide-react"
+import { CalendarDays, ChevronRight, PieChart, Plus, Utensils, Weight } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -10,59 +10,13 @@ import { DailyNutritionChart } from "@/components/daily-nutrition-chart"
 import { MealEntry } from "@/components/meal-entry"
 import { RecentExercises } from "@/components/recent-exercises"
 import { ProtectedRoute } from "@/components/protected-route"
-import { useAuth } from "@/contexts/auth-context"
+import { MainNav } from "@/components/main-nav"
 
 export default function Dashboard() {
-  const { user, logout } = useAuth()
   return (
     <ProtectedRoute>
       <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-10 border-b bg-background">
-        <div className="container flex h-16 items-center justify-between py-4">
-          <div className="flex items-center gap-2">
-            <Utensils className="h-6 w-6 text-green-600" />
-            <h1 className="text-xl font-bold">NutriTrack</h1>
-          </div>
-          <nav className="hidden md:flex items-center gap-6">
-            <Link href="/" className="text-sm font-medium text-foreground">
-              Dashboard
-            </Link>
-            <Link href="/food" className="text-sm font-medium text-muted-foreground">
-              Food
-            </Link>
-            <Link href="/exercise" className="text-sm font-medium text-muted-foreground">
-              Exercise
-            </Link>
-            <Link href="/reports" className="text-sm font-medium text-muted-foreground">
-              Reports
-            </Link>
-            <Link href="/settings" className="text-sm font-medium text-muted-foreground">
-              Settings
-            </Link>
-          </nav>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm">
-              <CalendarDays className="mr-2 h-4 w-4" />
-              Today
-            </Button>
-            <div className="flex items-center gap-2">
-              {user && <span className="text-sm font-medium">{user.name}</span>}
-              <Button variant="ghost" size="icon" className="rounded-full">
-                <img
-                  src="/placeholder.svg?height=32&width=32"
-                  alt="Avatar"
-                  className="rounded-full"
-                  height={32}
-                  width={32}
-                />
-              </Button>
-              <Button variant="ghost" size="icon" onClick={logout}>
-                <LogOut className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <MainNav />
       <main className="flex-1">
         <div className="container py-6">
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">

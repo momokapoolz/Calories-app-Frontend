@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { CalendarDays, ChevronDown, Filter, Plus, Search, Utensils, LogOut } from "lucide-react"
+import { CalendarDays, ChevronDown, Filter, Plus, Search, Utensils } from "lucide-react"
 import { format } from "date-fns"
 
 import { Button } from "@/components/ui/button"
@@ -13,7 +13,7 @@ import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
 import { ProtectedRoute } from "@/components/protected-route"
-import { useAuth } from "@/contexts/auth-context"
+import { MainNav } from "@/components/main-nav"
 import { MealForm } from "./components/MealForm"
 import { useMealLogs } from "./hooks/useMealLogs"
 import { MealLog, MealType, CreateMealLog } from "./types"
@@ -21,7 +21,6 @@ import { MealLog, MealType, CreateMealLog } from "./types"
 const MEAL_TYPES = ["Breakfast", "Lunch", "Dinner", "Snacks"] as const
 
 export default function MealPage() {
-  const { user, logout } = useAuth()
   const [date, setDate] = useState<Date>(new Date())
   const { mealLogs, loading, error, addMealLog, updateMealLog, deleteMealLog } = useMealLogs()
   const [searchTerm, setSearchTerm] = useState("")
@@ -41,69 +40,29 @@ export default function MealPage() {
   return (
     <ProtectedRoute>
       <div className="flex min-h-screen flex-col">
-        <header className="sticky top-0 z-10 border-b bg-background">
-          <div className="container flex h-16 items-center justify-between py-4">
-            <div className="flex items-center gap-2">
-              <Utensils className="h-6 w-6 text-green-600" />
-              <h1 className="text-xl font-bold">NutriTrack</h1>
-            </div>
-            <nav className="hidden md:flex items-center gap-6">
-              <Link href="/" className="text-sm font-medium text-muted-foreground">
-                Dashboard
-              </Link>
-              <Link href="/food" className="text-sm font-medium text-muted-foreground">
-                Food
-              </Link>
-              <Link href="/meal" className="text-sm font-medium text-foreground">
-                Meals
-              </Link>
-              <Link href="/exercise" className="text-sm font-medium text-muted-foreground">
-                Exercise
-              </Link>
-              <Link href="/reports" className="text-sm font-medium text-muted-foreground">
-                Reports
-              </Link>
-            </nav>
-            <div className="flex items-center gap-2">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    <CalendarDays className="mr-2 h-4 w-4" />
-                    {formattedDate}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="end">
-                  <Calendar
-                    mode="single"
-                    selected={date}
-                    onSelect={(date) => date && setDate(date)}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-              <div className="flex items-center gap-2">
-                {user && <span className="text-sm font-medium">{user.name}</span>}
-                <Button variant="ghost" size="icon" className="rounded-full">
-                  <img
-                    src="/placeholder.svg?height=32&width=32"
-                    alt="Avatar"
-                    className="rounded-full"
-                    height={32}
-                    width={32}
-                  />
-                </Button>
-                <Button variant="ghost" size="icon" onClick={logout}>
-                  <LogOut className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </div>
-        </header>
-        <main className="flex-1">
+        <MainNav />        <main className="flex-1">
           <div className="container py-6">
             <div className="flex flex-col gap-6">
               <div className="flex items-center justify-between">
-                <h1 className="text-2xl font-bold">Meal Planner</h1>
+                <div className="flex items-center gap-4">
+                  <h1 className="text-2xl font-bold">Meal Planner</h1>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        <CalendarDays className="mr-2 h-4 w-4" />
+                        {formattedDate}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="end">
+                      <Calendar
+                        mode="single"
+                        selected={date}
+                        onSelect={(date) => date && setDate(date)}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
                 <MealForm onSubmit={addMealLog} />
               </div>
 

@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import * as z from "zod"
 import axios from "axios"
+import api from "@/lib/api-client"
 import { Button } from "@/components/ui/button"
 import {
   Form,
@@ -47,29 +48,78 @@ export default function LoginPage() {
   useEffect(() => {
     setMounted(true)
   }, [])
-
   const onSubmit = async (data: LoginData) => {
     if (!mounted) return; // Prevent submission if not mounted
     
     try {
-      setIsLoading(true);
+      setIsLoading(true);      console.log('Attempting login with JWT endpoint');
+      console.log('API_URL:', API_URL);
+      console.log('Login data:', data);
       
-      console.log('Attempting login through Next.js API route');
-      const loginResponse = await axios.post('/api/auth/login', data, {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      // Use the api-client which handles CORS and other configurations
+      const loginResponse = await api.post('/login', data);
 
       const responseData = loginResponse.data;
-      console.log('Login response:', responseData);
-
-      // If login successful, we should have user data and tokens
+      console.log('Login response:', responseData);// If login successful, we should have user data and tokens
       if (responseData.status === "success" && responseData.data?.user) {
-        // Store tokens if needed
+        console.log('=== LOGIN SUCCESS ===')
+        console.log('User data:', responseData.data.user)
+        console.log('Tokens data:', responseData.data.tokens)
+          // Store the access token ID as the bearer token
         if (responseData.data.tokens) {
-          localStorage.setItem('accessToken', responseData.data.tokens.access_token_id.toString());
-          localStorage.setItem('refreshToken', responseData.data.tokens.refresh_token_id.toString());
+          const accessToken = responseData.data.tokens.access_token_id.toString();
+          const refreshToken = responseData.data.tokens.refresh_token_id.toString();
+            console.log('=== TOKEN STORAGE DEBUG ===')
+          console.log('Raw tokens from backend:', responseData.data.tokens)
+          console.log('Access token to store:', accessToken)
+          console.log('Refresh token to store:', refreshToken)
+          console.log('Access token type:', typeof accessToken)
+          console.log('Access token length:', accessToken.length)
+          
+          localStorage.setItem('accessToken', accessToken);
+          localStorage.setItem('refreshToken', refreshToken);
+          
+          // Verify tokens were stored correctly
+          const storedAccessToken = localStorage.getItem('accessToken');
+          const storedRefreshToken = localStorage.getItem('refreshToken');
+          console.log('Verified stored access token:', storedAccessToken);
+          console.log('Verified stored refresh token:', storedRefreshToken);
+          console.log('Stored tokens match:', accessToken === storedAccessToken);          // Test the token immediately after login
+          console.log('Testing token immediately after login...')
+          try {
+            console.log('Making test call to /api/auth/profile with stored token...')
+            console.log('Token being used for test:', storedAccessToken?.substring(0, 20) + '...')
+            
+            const testResponse = await api.get('/api/auth/profile');
+            console.log('Immediate token test SUCCESS:', testResponse.data);
+          } catch (testError: any) {
+            console.error('Immediate token test FAILED - Full error object:', testError);
+            console.error('Error message:', testError?.message || 'No message');
+            console.error('Error name:', testError?.name || 'No name');
+            console.error('Error code:', testError?.code || 'No code');
+            console.error('Response status:', testError?.response?.status || 'No status');
+            console.error('Response data:', testError?.response?.data || 'No response data');
+            console.error('Request URL:', testError?.config?.url || 'No URL');
+            console.error('Request headers:', testError?.config?.headers || 'No headers');            // Also try a direct axios call to compare
+            console.log('Trying direct axios call for comparison...')
+            try {
+              const directResponse = await axios.get(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1'}/auth/profile`, {
+                headers: {
+                  'Authorization': `Bearer ${storedAccessToken}`,
+                  'Accept': 'application/json'
+                }
+              });
+              console.log('Direct axios call SUCCESS:', directResponse.data);
+            } catch (directError: any) {
+              console.error('Direct axios call also FAILED:', {
+                message: directError?.message,
+                status: directError?.response?.status,
+                data: directError?.response?.data
+              });
+            }
+          }
+          
+          console.log('=== TOKEN STORAGE DEBUG END ===')
         }
 
         // Set user in auth context
@@ -82,12 +132,21 @@ export default function LoginPage() {
       } else {
         throw new Error('Login failed: Invalid server response');
       }    } catch (error: any) {
-      console.error("Login error:", error);
+      console.error("=== LOGIN ERROR DETAILS ===");
+      console.error("Full error object:", error);
+      console.error("Error message:", error.message);
+      console.error("Error code:", error.code);
+      console.error("Error response:", error.response);
+      console.error("Error config:", error.config);
+      console.error("Is network error:", error.message === 'Network Error');
+      console.error("Error request:", error.request);
       
       let errorMessage = "An error occurred during login";
       
-      // Handle axios error responses
-      if (error.response) {
+      // Handle different types of errors
+      if (error.message === 'Network Error') {
+        errorMessage = "Cannot connect to server. Please check if the backend is running on http://localhost:8080";
+      } else if (error.response) {
         errorMessage = error.response.data?.message || error.response.data?.error || 'Invalid email or password';
       } else if (error.message) {
         errorMessage = error.message;

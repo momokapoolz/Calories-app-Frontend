@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useRouter, usePathname } from "next/navigation"
-import { CalendarDays, Utensils, Apple } from "lucide-react"
+import { CalendarDays, Utensils, LogOut } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/contexts/auth-context"
@@ -27,20 +27,12 @@ export function MainNav() {
         <div className="flex items-center gap-2">
           <Utensils className="h-6 w-6 text-green-600" />
           <h1 className="text-xl font-bold">NutriTrack</h1>
-        </div>
-        <nav className="hidden md:flex items-center gap-6">
+        </div>        <nav className="hidden md:flex items-center gap-6">
           <Link 
             href="/" 
             className={`text-sm font-medium ${pathname === "/" ? "text-foreground" : "text-muted-foreground"}`}
           >
             Dashboard
-          </Link>
-          <Link 
-            href="/meal" 
-            className={`text-sm font-medium flex items-center gap-1 ${pathname.startsWith("/meal") ? "text-foreground" : "text-muted-foreground"}`}
-          >
-            <Apple className="h-4 w-4" />
-            Meals
           </Link>
           <Link 
             href="/food" 
@@ -49,10 +41,10 @@ export function MainNav() {
             Food
           </Link>
           <Link 
-            href="/exercise" 
-            className={`text-sm font-medium ${pathname === "/exercise" ? "text-foreground" : "text-muted-foreground"}`}
+            href="/meal" 
+            className={`text-sm font-medium ${pathname.startsWith("/meal") ? "text-foreground" : "text-muted-foreground"}`}
           >
-            Exercise
+            Meal
           </Link>
           <Link 
             href="/reports" 
@@ -71,20 +63,20 @@ export function MainNav() {
           <Button variant="outline" size="sm">
             <CalendarDays className="mr-2 h-4 w-4" />
             Today
-          </Button>
-          {isAuthenticated ? (
+          </Button>          {isAuthenticated ? (
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" onClick={handleLogout}>
-                Logout
-              </Button>
+              {user && <span className="text-sm font-medium">{user.name}</span>}
               <Button variant="ghost" size="icon" className="rounded-full">
                 <img
                   src="/placeholder.svg?height=32&width=32"
-                  alt={user?.name || "User"}
+                  alt="Avatar"
                   className="rounded-full"
                   height={32}
                   width={32}
                 />
+              </Button>
+              <Button variant="ghost" size="icon" onClick={handleLogout}>
+                <LogOut className="h-4 w-4" />
               </Button>
             </div>
           ) : (

@@ -1,5 +1,5 @@
 import { useState, ReactNode } from 'react';
-import { Food } from '../services/foodService';
+import { CreateFood, FoodWithNutrition } from '../types';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,14 +7,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Plus } from "lucide-react";
 
 interface FoodFormProps {
-  food?: Food;
-  onSubmit: (foodData: Omit<Food, 'id'>) => Promise<Food>;
+  food?: FoodWithNutrition;
+  onSubmit: (foodData: CreateFood) => Promise<any>;
   buttonText?: ReactNode;
 }
 
 export function FoodForm({ food, onSubmit, buttonText = "Add Custom Food" }: FoodFormProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [formData, setFormData] = useState<Omit<Food, 'id'>>({
+  const [formData, setFormData] = useState<CreateFood>({
     name: food?.name || '',
     serving_size_gram: food?.serving_size_gram || 100,
     source: food?.source || 'USER'
@@ -25,7 +25,10 @@ export function FoodForm({ food, onSubmit, buttonText = "Add Custom Food" }: Foo
     try {
       await onSubmit(formData);
       setIsOpen(false);
-      setFormData({ name: '', serving_size_gram: 100, source: 'USER' });
+      // Reset form only if adding new food (not editing)
+      if (!food) {
+        setFormData({ name: '', serving_size_gram: 100, source: 'USER' });
+      }
     } catch (error) {
       console.error('Failed to submit food:', error);
     }
@@ -34,7 +37,7 @@ export function FoodForm({ food, onSubmit, buttonText = "Add Custom Food" }: Foo
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button>
+        <Button variant={food ? "outline" : "default"} size={food ? "icon" : "default"}>
           {typeof buttonText === 'string' ? (
             <>
               <Plus className="mr-2 h-4 w-4" />
@@ -78,7 +81,7 @@ export function FoodForm({ food, onSubmit, buttonText = "Add Custom Food" }: Foo
               id="source"
               value={formData.source}
               onChange={(e) => setFormData(prev => ({ ...prev, source: e.target.value }))}
-              placeholder="Enter food source"
+              placeholder="Enter food source (e.g., USDA, USER)"
               required
             />
           </div>
@@ -94,4 +97,4 @@ export function FoodForm({ food, onSubmit, buttonText = "Add Custom Food" }: Foo
       </DialogContent>
     </Dialog>
   );
-} 
+}

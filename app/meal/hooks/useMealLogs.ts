@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import { MealLog, CreateMealLog, UpdateMealLog } from '../types'
-import { api } from '@/lib/api'
+import api from '@/lib/api-client'
 import { getErrorMessage } from '@/lib/utils'
 
 export const useMealLogs = () => {
@@ -9,15 +9,10 @@ export const useMealLogs = () => {
   const [mealLogs, setMealLogs] = useState<MealLog[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-
-  // Get token from localStorage
-  const getToken = () => localStorage.getItem('accessToken')
-
-  const fetchMealLogs = async () => {    try {
+  const fetchMealLogs = async () => {
+    try {
       setLoading(true)
-      const response = await api.get('/api/v1/meal-logs/user', {
-        headers: { Authorization: `Bearer ${getToken()}` }
-      })
+      const response = await api.get('/meal-logs/user')
       setMealLogs(response.data)
       setError(null)
     } catch (err) {
@@ -27,13 +22,10 @@ export const useMealLogs = () => {
       setLoading(false)
     }
   }
-
   const fetchMealLogsByDate = async (date: string) => {
     try {
       setLoading(true)
-      const response = await api.get(`/api/v1/meal-logs/user/date/${date}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
+      const response = await api.get(`/meal-logs/user/date/${date}`)
       setMealLogs(response.data)
       setError(null)
     } catch (err) {
@@ -43,16 +35,14 @@ export const useMealLogs = () => {
       setLoading(false)
     }
   }
-
   const addMealLog = async (data: CreateMealLog) => {
     try {
       setLoading(true)
-      const response = await api.post('/api/v1/meal-logs', data, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
+      const response = await api.post('/meal-logs', data)
       setMealLogs(prev => [...prev, response.data.meal_log])
       setError(null)
-      return response.data.meal_log    } catch (err) {
+      return response.data.meal_log
+    } catch (err) {
       const errorMessage = `Failed to create meal log: ${getErrorMessage(err)}`
       setError(errorMessage)
       console.error('Error creating meal log:', err)
@@ -61,13 +51,10 @@ export const useMealLogs = () => {
       setLoading(false)
     }
   }
-
   const updateMealLog = async (id: number, data: UpdateMealLog) => {
     try {
       setLoading(true)
-      const response = await api.put(`/api/v1/meal-logs/${id}`, data, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
+      const response = await api.put(`/meal-logs/${id}`, data)
       setMealLogs(prev =>
         prev.map(log => (log.id === id ? response.data : log))
       )
@@ -81,13 +68,10 @@ export const useMealLogs = () => {
       setLoading(false)
     }
   }
-
   const deleteMealLog = async (id: number) => {
     try {
       setLoading(true)
-      await api.delete(`/api/v1/meal-logs/${id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
+      await api.delete(`/meal-logs/${id}`)
       setMealLogs(prev => prev.filter(log => log.id !== id))
       setError(null)
     } catch (err) {
@@ -98,13 +82,10 @@ export const useMealLogs = () => {
       setLoading(false)
     }
   }
-
   const addItemsToMealLog = async (mealLogId: number, items: CreateMealLog['items']) => {
     try {
       setLoading(true)
-      const response = await api.post(`/api/v1/meal-logs/${mealLogId}/items`, { items }, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
+      const response = await api.post(`/meal-logs/${mealLogId}/items`, { items })
       setMealLogs(prev =>
         prev.map(log =>
           log.id === mealLogId
@@ -122,12 +103,11 @@ export const useMealLogs = () => {
       setLoading(false)
     }
   }
-
   useEffect(() => {
-    if (token) {
+    if (isAuthenticated) {
       fetchMealLogs()
     }
-  }, [token])
+  }, [isAuthenticated])
 
   return {
     mealLogs,
