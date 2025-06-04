@@ -157,6 +157,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
         localStorage.removeItem('accessToken')
         localStorage.removeItem('refreshToken')
         localStorage.removeItem('user')
+      } else if (error?.response?.status === 404) {
+        // 404 error - endpoint doesn't exist yet, keep user authenticated if we have stored user
+        console.log('404 error - endpoint not found, keeping user authenticated if possible')
+        
+        // If we have userStr, try to restore it
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+          try {
+            const storedUser = JSON.parse(userStr);
+            setUser(storedUser);
+            console.log('Restored user from localStorage after 404:', storedUser);
+          } catch (e) {
+            console.log('Failed to parse stored user during 404 error');
+          }
+        }
       } else if (error?.code === 'ECONNABORTED' || error?.code === 'ENOTFOUND' || error?.code === 'ECONNREFUSED') {
         // Network errors - keep user authenticated but log the issue
         console.log('Network error - keeping user authenticated despite backend error')
