@@ -45,18 +45,36 @@ if (isClient && axiosInstance) {
       return Promise.reject(error);
     }
   );
+  
   // Response interceptor
   axiosInstance.interceptors.response.use(
     (response: AxiosResponse) => {
       return response;
     },
     async (error: AxiosError) => {
+      // Get the current URL to determine if we're on a login/register page
+      const currentPath = window.location.pathname;
+      const isAuthPage = currentPath.includes('/login') || currentPath.includes('/register');
+      
       // Handle different status codes
       if (error.response?.status === 401) {
-        // Clear local storage on auth errors
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-        localStorage.removeItem('user');
+        console.error('401 Unauthorized error:', {
+          url: error.config?.url,
+          method: error.config?.method
+        });
+        
+        // Only clear storage and redirect if not already on an auth page
+        // This prevents redirect loops and allows login/register pages to handle their own errors
+        if (!isAuthPage && !error.config?.url?.includes('/login') && !error.config?.url?.includes('/register')) {
+          console.log('Clearing auth state due to 401 error');
+          // Clear local storage on auth errors
+          localStorage.removeItem('accessToken');
+          localStorage.removeItem('refreshToken');
+          localStorage.removeItem('user');
+          
+          // Don't redirect automatically - let the components handle redirection
+          // This prevents issues with React rendering lifecycle
+        }
       } else if (error.response?.status === 400) {
         // Log 400 errors for debugging
         console.error('400 Bad Request:', {

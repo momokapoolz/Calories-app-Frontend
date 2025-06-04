@@ -35,7 +35,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [mounted, setMounted] = useState(false)
-  const router = useRouter()  // Check auth status on mount and after window focus
+  const router = useRouter()
+  
+  // Check auth status on mount and after window focus
   const checkAuth = async () => {
     try {
       setIsLoading(true)
@@ -52,8 +54,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (!token) {
         console.log('No token found, setting user to null')
         setUser(null)
+        setIsLoading(false)
         return
-      }      // First, try to restore user from localStorage if available
+      }
+      
+      // First, try to restore user from localStorage if available
       if (userStr) {
         try {
           const storedUser = JSON.parse(userStr)
@@ -66,6 +71,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
           verifyTokenWithBackend(token).catch(error => {
             console.log('Background verification failed, but user remains logged in from localStorage')
           })
+          
+          setIsLoading(false)
           return
         } catch (e) {
           console.log('Failed to parse stored user, removing from localStorage')
@@ -88,6 +95,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setIsLoading(false)
     }
   }
+  
   const verifyTokenWithBackend = async (token: string) => {
     try {
       console.log('Verifying token with backend...')
@@ -152,9 +160,31 @@ export function AuthProvider({ children }: AuthProviderProps) {
       } else if (error?.code === 'ECONNABORTED' || error?.code === 'ENOTFOUND' || error?.code === 'ECONNREFUSED') {
         // Network errors - keep user authenticated but log the issue
         console.log('Network error - keeping user authenticated despite backend error')
+        
+        // If we have userStr, try to restore it
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+          try {
+            const storedUser = JSON.parse(userStr);
+            setUser(storedUser);
+          } catch (e) {
+            console.log('Failed to parse stored user during network error');
+          }
+        }
       } else {
         // For other errors, also keep user authenticated - might be temporary
         console.log('Other error - keeping user authenticated despite backend error')
+        
+        // If we have userStr, try to restore it
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+          try {
+            const storedUser = JSON.parse(userStr);
+            setUser(storedUser);
+          } catch (e) {
+            console.log('Failed to parse stored user during other error');
+          }
+        }
       }
     }
   }
@@ -162,7 +192,27 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Only run effect on client side
   useEffect(() => {
     setMounted(true)
-    checkAuth()    // Add window focus event listener
+    
+    // Check if we have a token in localStorage immediately
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('accessToken');
+      const userStr = localStorage.getItem('user');
+      
+      // If we have both token and user data, set the user immediately to prevent flicker
+      if (token && userStr) {
+        try {
+          const storedUser = JSON.parse(userStr);
+          setUser(storedUser);
+        } catch (e) {
+          console.log('Failed to parse stored user on initial mount');
+        }
+      }
+    }
+    
+    // Then run the full auth check
+    checkAuth()
+    
+    // Add window focus event listener
     const handleFocus = () => {
       checkAuth()
     }
@@ -175,6 +225,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   
   const login = (userData: User) => {
     setUser(userData)
+    // Also store in localStorage for persistence
+    localStorage.setItem('user', JSON.stringify(userData))
     router.push("/")
   }
   
