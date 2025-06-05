@@ -1,116 +1,118 @@
 import api from '@/lib/api-client';
 import { Food, CreateFood, FoodNutrient, CreateFoodNutrient, Nutrient, FoodWithNutrition } from '../types';
 
+// Base API path
+const API_PATH = '/api/v1';
+
 // Food CRUD operations
 export const createFood = async (food: CreateFood): Promise<Food> => {
   try {
-    const response = await api.post('/foods', food);
-    return response.data;
+    const response = await api.post(`${API_PATH}/foods`, food);
+    return response.data.data;
   } catch (error: any) {
     if (error.response?.status === 400) {
-      throw new Error('Invalid food data provided');
+      throw new Error(error.response.data.message || 'Invalid food data provided');
     }
-    throw new Error('Failed to create food');
+    throw new Error(error.response?.data?.message || 'Failed to create food');
   }
 };
 
 export const getAllFoods = async (): Promise<Food[]> => {
   try {
-    const response = await api.get('/foods');
-    return response.data;
-  } catch (error) {
-    throw new Error('Failed to retrieve foods');
+    const response = await api.get(`${API_PATH}/foods`);
+    return response.data.data;
+  } catch (error: any) {
+    throw new Error(error.response?.data?.message || 'Failed to retrieve foods');
   }
 };
 
 export const getFoodById = async (id: number): Promise<Food> => {
   try {
-    const response = await api.get(`/foods/${id}`);
-    return response.data;
+    const response = await api.get(`${API_PATH}/foods/${id}`);
+    return response.data.data;
   } catch (error: any) {
     if (error.response?.status === 404) {
       throw new Error('Food not found');
     }
-    throw new Error('Failed to retrieve food');
+    throw new Error(error.response?.data?.message || 'Failed to retrieve food');
   }
 };
 
 export const updateFood = async (id: number, food: CreateFood): Promise<Food> => {
   try {
-    const response = await api.put(`/foods/${id}`, food);
-    return response.data;
+    const response = await api.put(`${API_PATH}/foods/${id}`, food);
+    return response.data.data;
   } catch (error: any) {
     if (error.response?.status === 404) {
       throw new Error('Food not found');
     }
-    throw new Error('Failed to update food');
+    throw new Error(error.response?.data?.message || 'Failed to update food');
   }
 };
 
-export const deleteFood = async (id: number): Promise<{ message: string }> => {
+export const deleteFood = async (id: number): Promise<void> => {
   try {
-    const response = await api.delete(`/foods/${id}`);
-    return response.data;
+    await api.delete(`${API_PATH}/foods/${id}`);
   } catch (error: any) {
     if (error.response?.status === 404) {
       throw new Error('Food not found');
     }
-    throw new Error('Failed to delete food');
+    throw new Error(error.response?.data?.message || 'Failed to delete food');
   }
 };
 
 // Food Nutrient operations
 export const getFoodNutrients = async (foodId: number): Promise<FoodNutrient[]> => {
   try {
-    const response = await api.get(`/food-nutrients/food/${foodId}`);
-    return response.data;
-  } catch (error) {
-    throw new Error('Failed to retrieve food nutrients');
+    const response = await api.get(`${API_PATH}/food-nutrients/food/${foodId}`);
+    return response.data.data;
+  } catch (error: any) {
+    throw new Error(error.response?.data?.message || 'Failed to retrieve food nutrients');
   }
 };
 
 export const createFoodNutrient = async (foodNutrient: CreateFoodNutrient): Promise<FoodNutrient> => {
   try {
-    const response = await api.post('/food-nutrients', foodNutrient);
-    return response.data;
-  } catch (error) {
-    throw new Error('Failed to create food nutrient');
+    const response = await api.post(`${API_PATH}/food-nutrients`, foodNutrient);
+    return response.data.data;
+  } catch (error: any) {
+    throw new Error(error.response?.data?.message || 'Failed to create food nutrient');
   }
 };
 
 export const updateFoodNutrient = async (id: number, foodNutrient: CreateFoodNutrient): Promise<FoodNutrient> => {
   try {
-    const response = await api.put(`/food-nutrients/${id}`, foodNutrient);
-    return response.data;
-  } catch (error) {
-    throw new Error('Failed to update food nutrient');
+    const response = await api.put(`${API_PATH}/food-nutrients/${id}`, foodNutrient);
+    return response.data.data;
+  } catch (error: any) {
+    throw new Error(error.response?.data?.message || 'Failed to update food nutrient');
   }
 };
 
 export const deleteFoodNutrient = async (id: number): Promise<void> => {
   try {
-    await api.delete(`/food-nutrients/${id}`);
-  } catch (error) {
-    throw new Error('Failed to delete food nutrient');
+    await api.delete(`${API_PATH}/food-nutrients/${id}`);
+  } catch (error: any) {
+    throw new Error(error.response?.data?.message || 'Failed to delete food nutrient');
   }
 };
 
 // Nutrient operations
 export const getAllNutrients = async (): Promise<Nutrient[]> => {
   try {
-    const response = await api.get('/nutrients');
-    return response.data;
-  } catch (error) {
-    throw new Error('Failed to retrieve nutrients');
+    const response = await api.get(`${API_PATH}/nutrients`);
+    return response.data.data;
+  } catch (error: any) {
+    throw new Error(error.response?.data?.message || 'Failed to retrieve nutrients');
   }
 };
 
 export const getNutrientsByCategory = async (category: string): Promise<Nutrient[]> => {
   try {
-    const response = await api.get(`/nutrients/category/${category}`);
-    return response.data;
-  } catch (error) {
-    throw new Error('Failed to retrieve nutrients by category');
+    const response = await api.get(`${API_PATH}/nutrients/category/${category}`);
+    return response.data.data;
+  } catch (error: any) {
+    throw new Error(error.response?.data?.message || 'Failed to retrieve nutrients by category');
   }
 };
 
