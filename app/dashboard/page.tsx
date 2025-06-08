@@ -63,8 +63,18 @@ export default function Dashboard() {
         const today = format(new Date(), 'yyyy-MM-dd')
         
         // Fetch dashboard data from API
-        const response = await fetch(`/api/v1/dashboard?date=${today}`, {
-          credentials: 'include', // Include cookies for authentication
+        const token = localStorage.getItem('accessToken');
+        const headers: HeadersInit = {
+          'Content-Type': 'application/json',
+        };
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        const response = await fetch(`http://localhost:8080/api/v1/dashboard/?date=${today}`, {
+          method: 'GET', // Explicitly set method, good practice
+          headers: headers,
+          credentials: 'include', // Keep this if your app also uses cookies for other things or as a fallback
         })
         
         if (response.status === 404) {

@@ -18,17 +18,35 @@ export const createFood = async (food: CreateFood): Promise<Food> => {
 };
 
 export const getAllFoods = async (): Promise<Food[]> => {
+  console.log('[getAllFoods] Fetching from:', `${API_PATH}/foods/`);
   try {
-    const response = await api.get(`${API_PATH}/foods`);
-    return response.data.data;
+    const response = await api.get<any>(`${API_PATH}/foods/`); // Specify <any> or a more specific type for response.data
+    console.log('[getAllFoods] Response status:', response.status);
+    console.log('[getAllFoods] Raw response.data:', JSON.stringify(response.data, null, 2));
+
+    // Assuming the actual food array is nested under a 'data' key in the response, as per original code
+    // It's good practice to check if response.data and response.data.data exist and are of expected type
+    if (response.data && Array.isArray(response.data.data)) {
+      console.log('[getAllFoods] Successfully extracted food array from response.data.data.');
+      return response.data.data as Food[];
+    } else if (response.data && Array.isArray(response.data)) {
+      // Fallback if the data is not nested under another 'data' key but is the root array
+      console.warn('[getAllFoods] response.data is an array, not response.data.data. Using response.data directly.');
+      return response.data as Food[];
+    } else {
+      console.error('[getAllFoods] Expected an array of foods in response.data.data or response.data, but got:', response.data);
+      throw new Error('Food data received from API is not in the expected format.');
+    }
   } catch (error: any) {
-    throw new Error(error.response?.data?.message || 'Failed to retrieve foods');
+    console.error('[getAllFoods] API Error - Status:', error.response?.status, 'Response Data:', JSON.stringify(error.response?.data, null, 2));
+    const message = error.response?.data?.message || error.message || 'Unknown error while fetching foods';
+    throw new Error(`Failed to retrieve foods. Status: ${error.response?.status || 'N/A'}. Message: ${message}`);
   }
 };
 
 export const getFoodById = async (id: number): Promise<Food> => {
   try {
-    const response = await api.get(`${API_PATH}/foods/${id}`);
+    const response = await api.get(`${API_PATH}/foods/${id}/`);
     return response.data.data;
   } catch (error: any) {
     if (error.response?.status === 404) {
@@ -40,7 +58,7 @@ export const getFoodById = async (id: number): Promise<Food> => {
 
 export const updateFood = async (id: number, food: CreateFood): Promise<Food> => {
   try {
-    const response = await api.put(`${API_PATH}/foods/${id}`, food);
+    const response = await api.put(`${API_PATH}/foods/${id}/`, food);
     return response.data.data;
   } catch (error: any) {
     if (error.response?.status === 404) {
@@ -52,7 +70,7 @@ export const updateFood = async (id: number, food: CreateFood): Promise<Food> =>
 
 export const deleteFood = async (id: number): Promise<void> => {
   try {
-    await api.delete(`${API_PATH}/foods/${id}`);
+    await api.delete(`${API_PATH}/foods/${id}/`);
   } catch (error: any) {
     if (error.response?.status === 404) {
       throw new Error('Food not found');
@@ -64,7 +82,7 @@ export const deleteFood = async (id: number): Promise<void> => {
 // Food Nutrient operations
 export const getFoodNutrients = async (foodId: number): Promise<FoodNutrient[]> => {
   try {
-    const response = await api.get(`${API_PATH}/food-nutrients/food/${foodId}`);
+    const response = await api.get(`${API_PATH}/food-nutrients/food/${foodId}/`);
     return response.data.data;
   } catch (error: any) {
     throw new Error(error.response?.data?.message || 'Failed to retrieve food nutrients');
@@ -73,7 +91,7 @@ export const getFoodNutrients = async (foodId: number): Promise<FoodNutrient[]> 
 
 export const createFoodNutrient = async (foodNutrient: CreateFoodNutrient): Promise<FoodNutrient> => {
   try {
-    const response = await api.post(`${API_PATH}/food-nutrients`, foodNutrient);
+    const response = await api.post(`${API_PATH}/food-nutrients/`, foodNutrient);
     return response.data.data;
   } catch (error: any) {
     throw new Error(error.response?.data?.message || 'Failed to create food nutrient');
@@ -82,7 +100,7 @@ export const createFoodNutrient = async (foodNutrient: CreateFoodNutrient): Prom
 
 export const updateFoodNutrient = async (id: number, foodNutrient: CreateFoodNutrient): Promise<FoodNutrient> => {
   try {
-    const response = await api.put(`${API_PATH}/food-nutrients/${id}`, foodNutrient);
+    const response = await api.put(`${API_PATH}/food-nutrients/${id}/`, foodNutrient);
     return response.data.data;
   } catch (error: any) {
     throw new Error(error.response?.data?.message || 'Failed to update food nutrient');
@@ -91,7 +109,7 @@ export const updateFoodNutrient = async (id: number, foodNutrient: CreateFoodNut
 
 export const deleteFoodNutrient = async (id: number): Promise<void> => {
   try {
-    await api.delete(`${API_PATH}/food-nutrients/${id}`);
+    await api.delete(`${API_PATH}/food-nutrients/${id}/`);
   } catch (error: any) {
     throw new Error(error.response?.data?.message || 'Failed to delete food nutrient');
   }
@@ -100,7 +118,7 @@ export const deleteFoodNutrient = async (id: number): Promise<void> => {
 // Nutrient operations
 export const getAllNutrients = async (): Promise<Nutrient[]> => {
   try {
-    const response = await api.get(`${API_PATH}/nutrients`);
+    const response = await api.get(`${API_PATH}/nutrients/`);
     return response.data.data;
   } catch (error: any) {
     throw new Error(error.response?.data?.message || 'Failed to retrieve nutrients');
@@ -145,12 +163,36 @@ export const getFoodWithNutrition = async (foodId: number): Promise<FoodWithNutr
 
 // Helper function to get multiple foods with nutrition data
 export const getFoodsWithNutrition = async (foodIds?: number[]): Promise<FoodWithNutrition[]> => {
+  console.log('[getFoodsWithNutrition] Starting...');
   try {
     const foods = await getAllFoods();
+    console.log('[getFoodsWithNutrition] Foods from getAllFoods:', JSON.stringify(foods, null, 2));
+
+    if (!Array.isArray(foods)) {
+      console.error('[getFoodsWithNutrition] getAllFoods did not return an array. Data:', foods);
+      throw new Error('Data from getAllFoods is not an array.');
+    }
+
     const targetFoods = foodIds ? foods.filter(f => foodIds.includes(f.id!)) : foods;
+    console.log('[getFoodsWithNutrition] Target foods to process:', JSON.stringify(targetFoods, null, 2));
     
     const foodsWithNutrition = await Promise.all(
       targetFoods.map(async (food) => {
+        console.log(`[getFoodsWithNutrition] Processing food ID: ${food?.id}`);
+        if (typeof food?.id === 'undefined') {
+          console.error('[getFoodsWithNutrition] Encountered food item with undefined ID:', food);
+          // Skip this item or handle as an error, returning a default structure
+          return {
+            ...(food || {}),
+            id: -1, // Placeholder ID
+            name: food?.name || 'Unknown Food (ID missing)',
+            calories: 0,
+            protein: 0,
+            carbs: 0,
+            fat: 0,
+            nutrients: []
+          };
+        }
         try {
           const nutrients = await getFoodNutrients(food.id!);
           
@@ -168,7 +210,8 @@ export const getFoodsWithNutrition = async (foodIds?: number[]): Promise<FoodWit
             fat,
             nutrients
           };
-        } catch (error) {
+        } catch (error: any) {
+          console.error(`[getFoodsWithNutrition] Error fetching nutrients for food ID ${food?.id}:`, error.message);
           // If we can't get nutrients, return food with zero nutrition
           return {
             ...food,
@@ -182,8 +225,10 @@ export const getFoodsWithNutrition = async (foodIds?: number[]): Promise<FoodWit
       })
     );
 
+    console.log('[getFoodsWithNutrition] Successfully processed foodsWithNutrition:', JSON.stringify(foodsWithNutrition, null, 2));
     return foodsWithNutrition;
-  } catch (error) {
-    throw new Error('Failed to retrieve foods with nutrition data');
+  } catch (error: any) {
+    console.error('[getFoodsWithNutrition] Outer catch error:', error.message, error.stack);
+    throw new Error(`Failed to retrieve foods with nutrition data. Original error: ${error.message}`);
   }
 };

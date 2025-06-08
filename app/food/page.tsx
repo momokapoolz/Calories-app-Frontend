@@ -31,9 +31,12 @@ export default function FoodPage() {
   } = useFood()
   const [searchTerm, setSearchTerm] = useState("")
 
+  console.log('[FoodPage] Rendering - foods:', foods, 'loading:', loading, 'error:', error);
+
   const filteredFoods = foods.filter(food => 
     food.name.toLowerCase().includes(searchTerm.toLowerCase())
   )
+  console.log('[FoodPage] filteredFoods:', filteredFoods);
 
   // Filter foods by source for different tabs
   const userFoods = filteredFoods.filter(food => food.source === 'USER')

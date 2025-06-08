@@ -33,9 +33,12 @@ export const useFood = () => {
     try {
       setLoading(true);
       setError(null);
+      console.log('[useFood] Fetching foods...');
       const data = await getFoodsWithNutrition();
+      console.log('[useFood] Data received from getFoodsWithNutrition:', data);
       setFoods(data);
     } catch (err: any) {
+      console.error('[useFood] Error fetching foods:', err.message);
       setError(err.message);
     } finally {
       setLoading(false);

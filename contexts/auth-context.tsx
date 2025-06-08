@@ -103,7 +103,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       console.log('Making direct request to backend:', `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1'}/auth/profile`)
       
       // Call backend directly with axios since api-client might be causing issues
-      const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1'}/auth/profile`, {
+      const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/api/profile`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Accept': 'application/json'
