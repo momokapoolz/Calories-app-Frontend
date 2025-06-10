@@ -231,7 +231,6 @@ export async function logout(): Promise<{ message: string }> {
     }
     
     // Use internal API route instead of direct Axios call
-      // Use internal API route instead of direct Axios call
     const response = await axios.post('/api/auth/logout', {}, {
       headers: {
         'Accept': 'application/json',

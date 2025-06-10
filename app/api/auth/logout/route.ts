@@ -15,7 +15,7 @@ export async function POST(request: Request) {
     const cookieHeader = request.headers.get('cookie') || '';
     
     console.log('[Logout] Sending request to API with:', {
-      url: `${API_URL}/auth/logout`,
+      url: `${API_URL}/logout`,
       auth: authHeader ? 'Bearer token present' : 'No auth token',
       cookies: cookieHeader ? 'Cookies present' : 'No cookies'
     });
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
     }
     
     // Forward the request to the actual API using axios
-    const response = await axios.post(`${API_URL}/auth/logout`, {}, {
+    const response = await axios.post(`${API_URL}/logout`, {}, {
       headers,
       withCredentials: true, // Include credentials for cookie-based auth
     });

@@ -6,7 +6,7 @@ export async function GET(request: NextRequest) {
     const token = request.headers.get('authorization');
     
     // Build the backend URL
-    const backendUrl = 'http://localhost:8080/api/v1/foods';
+    const backendUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1'}/foods/`;
     console.log(`Proxying request to: ${backendUrl}`);
     
     // Make the request to the backend
@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     
     // Build the backend URL
-    const backendUrl = 'http://localhost:8080/api/v1/foods';
+    const backendUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1'}/foods/`;
     console.log(`Proxying POST request to: ${backendUrl}`);
     
     // Make the request to the backend

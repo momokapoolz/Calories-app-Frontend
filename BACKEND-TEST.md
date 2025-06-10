@@ -2,7 +2,7 @@
 
 ## Test 1: Check if backend is running
 ```powershell
-Invoke-WebRequest -Uri "http://localhost:8080/api/v1/api/auth/profile" -Method GET
+Invoke-WebRequest -Uri "http://localhost:8080/api/v1/profile" -Method GET
 ```
 Expected: Should return "Authentication required" error
 

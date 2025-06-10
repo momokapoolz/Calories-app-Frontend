@@ -100,10 +100,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       console.log('Verifying token with backend...')
       console.log('Token to verify:', token?.substring(0, 20) + '...')     
-      console.log('Making direct request to backend:', `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1'}/auth/profile`)
+      console.log('Making direct request to backend:', `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1'}/profile`)
       
       // Call backend directly with axios since api-client might be causing issues
-      const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/api/profile`, {
+      const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1'}/profile`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Accept': 'application/json'
@@ -252,7 +252,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Use axios directly to call the backend logout endpoint
       const token = localStorage.getItem('accessToken')
       if (token) {
-        await axios.post(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1'}/auth/logout`, {}, {
+        await axios.post(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1'}/logout`, {}, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Accept': 'application/json'

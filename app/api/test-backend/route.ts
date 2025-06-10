@@ -10,7 +10,7 @@ export async function GET() {
   try {
     console.log('Testing backend connectivity to:', API_URL);
     
-    const response = await axios.get(`${API_URL}/api/auth/profile`, {
+    const response = await axios.get(`${API_URL}/profile`, {
       headers: {
         'Accept': 'application/json',
       },

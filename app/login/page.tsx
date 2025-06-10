@@ -57,7 +57,7 @@ export default function LoginPage() {
       console.log('Login data:', data);
       
       // Use the api-client which handles CORS and other configurations
-      const loginResponse = await api.post('/api/v1/login', data);
+      const loginResponse = await api.post('/login', data);
 
       const responseData = loginResponse.data;
       console.log('Login response:', responseData);// If login successful, we should have user data and tokens
@@ -87,10 +87,10 @@ export default function LoginPage() {
           console.log('Stored tokens match:', accessToken === storedAccessToken);          // Test the token immediately after login
           console.log('Testing token immediately after login...')
           try {
-            console.log('Making test call to /api/v1/api/profile with stored token...')
+            console.log('Making test call to /profile with stored token...')
             console.log('Token being used for test:', storedAccessToken?.substring(0, 20) + '...')
             
-            const testResponse = await api.get('/api/v1/api/profile');
+            const testResponse = await api.get('/profile');
             console.log('Immediate token test SUCCESS:', testResponse.data);
           } catch (testError: any) {
             console.error('Immediate token test FAILED - Full error object:', testError);
@@ -103,7 +103,7 @@ export default function LoginPage() {
             console.error('Request headers:', testError?.config?.headers || 'No headers');            // Also try a direct axios call to compare
             console.log('Trying direct axios call for comparison...')
             try {
-              const directResponse = await axios.get(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/api/profile`, {
+              const directResponse = await axios.get(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1'}/profile`, {
                 headers: {
                   'Authorization': `Bearer ${storedAccessToken}`,
                   'Accept': 'application/json'

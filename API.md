@@ -1,9 +1,20 @@
 # Calories App API Documentation
 
-## Authentication Endpoints
+This document provides a detailed description of the Calories App API, including authentication, protected endpoints, and data models.
 
-### Register a new user
-- **URL**: `/register`
+**Base URL**: The base URL for all endpoints is `/api/v1`.
+
+## Authentication
+
+Authentication is handled via JWT (JSON Web Tokens). Currently, the API primarily uses **Token-Based authentication** through the User Module endpoints.
+
+**Current Authentication Method:**
+- **Token-Based**: The client receives token IDs (UUIDs) and sends them back in the `Authorization` header for subsequent requests. This is suitable for both mobile and web clients.
+
+**Note**: Cookie-based authentication through the Auth Module (`/api/v1/auth/*`) is temporarily disabled. Use the User Module endpoints (`/api/v1/login`, `/api/v1/logout`) instead.
+
+### Register a New User
+- **URL**: `/api/v1/register`
 - **Method**: `POST`
 - **Request Body**:
   ```json
@@ -19,9 +30,7 @@
     "activity_level": "Moderate"
   }
   ```
-- **Success Response**: 
-  - **Code**: 201 Created
-  - **Content**: 
+- **Success Response (Code `201 Created`)**:
     ```json
     {
       "status": "success",
@@ -32,11 +41,6 @@
           "name": "John Doe",
           "email": "john@example.com",
           "role": "user"
-        },
-        "tokens": {
-          "access_token_id": 12345678901234,
-          "refresh_token_id": 98765432109876,
-          "expires_in": 3600
         }
       }
     }
@@ -58,10 +62,10 @@
     }
     ```
 
-### User Login with JWT
-- **URL**: `/login`
+### User Login
+- **URL**: `/api/v1/login`
 - **Method**: `POST`
-- **Description**: Authenticates a user and returns JWT tokens
+- **Description**: Authenticates a user and returns JWT token IDs for token-based authentication.
 - **Request Body**:
   ```json
   {
@@ -69,8 +73,7 @@
     "password": "securepassword"
   }
   ```
-- **Success Response**: 
-  - **Code**: 200 OK
+- **Success Response (Code `200 OK`)**:
   - **Content**: 
     ```json
     {
@@ -84,133 +87,29 @@
           "role": "user"
         },
         "tokens": {
-          "access_token_id": 12345678901234,
-          "refresh_token_id": 98765432109876,
+          "access_token_id": "0097fcb4-abeb-4140-8683-181f7d796755",
+          "refresh_token_id": "15aff74e-bafe-410b-a7f7-fa5a96e530a6",
           "expires_in": 3600
         }
       }
     }
     ```
-- **Error Response**: 
-  - **Code**: 401 Unauthorized
-    ```json
-    {
-      "status": "error",
-      "message": "Invalid credentials"
-    }
-    ```
-  - **Code**: 500 Internal Server Error
-    ```json
-    {
-      "status": "error",
-      "message": "Authentication failed",
-      "error": "Redis connection error"
-    }
-    ```
 
-### Cookie-Based Login (Alternative Method)
-- **URL**: `/auth/login`
-- **Method**: `POST`
-- **Description**: Authenticates a user and sets secure cookies for session management
-- **Request Body**:
-  ```json
-  {
-    "email": "john@example.com",
-    "password": "securepassword"
-  }
-  ```
-- **Success Response**: 
-  - **Code**: 200 OK
-  - **Cookies Set**: 
-    - `jwt-id` - Contains the access token ID (HttpOnly)
-    - `refresh-id` - Contains the refresh token ID (HttpOnly)
-  - **Content**: 
-    ```json
-    {
-      "status": "success",
-      "message": "Login successful",
-      "data": {
-        "user": {
-          "id": 1,
-          "name": "John Doe",
-          "email": "john@example.com",
-          "role": "user"
-        },
-        "expires_in": 3600
-      }
-    }
-    ```
-- **Error Response**: 
-  - **Code**: 401 Unauthorized
-    ```json
-    {
-      "status": "error",
-      "message": "Invalid credentials"
-    }
-    ```
-  - **Code**: 500 Internal Server Error
-    ```json
-    {
-      "status": "error",
-      "message": "Authentication failed",
-      "error": "Redis connection error"
-    }
-    ```
+---
 
-### Token Refresh
-- **URL**: `/auth/refresh`
-- **Method**: `POST`
-- **Description**: Generates new access token using refresh token stored in Redis
-- **Required Cookies**:
-  - `refresh-id` - Contains the refresh token ID
-- **Success Response**: 
-  - **Code**: 200 OK
-  - **Cookies Updated**: 
-    - `jwt-id` - Contains the new access token ID (HttpOnly)
-  - **Content**: 
-    ```json
-    {
-      "status": "success",
-      "message": "Token refreshed successfully",
-      "data": {
-        "expires_in": 3600
-      }
-    }
-    ```
-- **Error Response**: 
-  - **Code**: 401 Unauthorized
-    ```json
-    {
-      "status": "error",
-      "message": "Invalid refresh token"
-    }
-    ```
-  - **Code**: 500 Internal Server Error
-    ```json
-    {
-      "status": "error",
-      "message": "Token refresh failed",
-      "error": "Redis connection error"
-    }
-    ```
+- **Common Error Responses**: 
+  - **Code `401 Unauthorized`**: `{"status": "error", "message": "Invalid credentials"}`
+  - **Code `500 Internal Server Error`**: `{"status": "error", "message": "Authentication failed", "error": "..."}`
 
-### Logout
-- **URL**: `/auth/logout`
+
+### User Logout
+- **URL**: `/api/v1/logout`
 - **Method**: `POST`
-- **Description**: Invalidates both access and refresh tokens in Redis
-- **Authentication Methods**:
-  1. Cookie-based:
-     - Required Cookies: 
-       - `jwt-id` - Access token ID
-       - `refresh-id` - Refresh token ID
-  2. Token-based:
-     - Headers: 
-       - `Authorization: Bearer {access_token}`
-- **Success Response**: 
-  - **Code**: 200 OK
-  - **Cookies Cleared** (if using cookie-based auth): 
-    - `jwt-id` 
-    - `refresh-id`
+- **Description**: Invalidates the current user's access token and logs them out
+- **Authentication**: Required (Bearer token with access_token_id)
+- **Headers**: 
+  - `Authorization: Bearer {access_token_id}`
+- **Success Response (Code `200 OK`)**:
   - **Content**: 
     ```json
     {
@@ -218,62 +117,70 @@
       "message": "Logged out successfully"
     }
     ```
-- **Error Response**: 
-  - **Code**: 400 Bad Request
-    ```json
-    {
-      "status": "error",
-      "message": "No active session"
-    }
-    ```
-  - **Code**: 500 Internal Server Error
-    ```json
-    {
-      "status": "error",
-      "message": "Logout failed",
-      "error": "Redis connection error"
-    }
-    ```
+- **Error Responses**: 
+  - **Code `400 Bad Request`**: `{"status": "error", "message": "No active session"}`
+  - **Code `401 Unauthorized`**: `{"error": "Authentication required"}`
+  - **Code `500 Internal Server Error`**: `{"status": "error", "message": "Failed to invalidate token"}`
 
-### Token Validation
-- **Description**: All protected endpoints support both authentication methods
-- **Authentication Methods**: 
-  1. Cookie-based:
-     - Requires valid `jwt-id` cookie
-     - Server retrieves JWT from Redis using cookie value
-  2. Token-based:
-     - Requires `Authorization: Bearer {access_token}` header
-     - Token is validated directly
-- **Validation Process**:
-  1. Extract token (from cookie ID or Authorization header)
-  2. If using cookies, retrieve actual JWT from Redis
-  3. Validate JWT signature and claims
-  4. Check token expiration
-- **Error Responses**:
-  - **Code**: 401 Unauthorized
-    ```json
-    {
-      "status": "error",
-      "message": "Invalid or expired token"
-    }
-    ```
-  - **Code**: 401 Unauthorized
-    ```json
-    {
-      "status": "error",
-      "message": "Token not found in Redis"
-    }
-    ```
+---
+
+## Auth Module Endpoints (Temporarily Disabled)
+
+> **Note**: The following Auth Module endpoints (`/api/v1/auth/*`) are temporarily disabled. Use the User Module endpoints above instead.
+
+### Token Refresh (Temporarily Disabled)
+- **URL**: `/api/v1/auth/refresh`
+- **Method**: `POST`
+- **Description**: Generates a new access token using the refresh token. Requires cookie-based authentication.
+- **Status**: ⚠️ **Temporarily Disabled**
+- **Required Cookies**:
+  - `refresh-id`: Contains the refresh token ID.
+- **Success Response (Code `200 OK`)**:
+  - **Cookies Updated**: 
+    - `jwt-id`: A new access token ID is set.
+  - **Content**: `{"status": "success", "message": "Token refreshed successfully"}`
+- **Error Response (`401 Unauthorized`)**: `{"status": "error", "message": "Invalid refresh token"}`
+
+
+### Auth Logout (Temporarily Disabled)
+- **URL**: `/api/v1/auth/logout`
+- **Method**: `POST`
+- **Description**: Invalidates both access and refresh tokens by deleting them from the server's store (Redis).
+- **Status**: ⚠️ **Temporarily Disabled** - Use `/api/v1/logout` instead
+- **Authentication**: This endpoint works with both cookie-based and token-based authentication. The server will automatically detect the method used.
+- **Success Response (Code `200 OK`)**:
+  - **Cookies Cleared**: If using cookie-based auth, `jwt-id` and `refresh-id` cookies are cleared.
+  - **Content**: `{"status": "success", "message": "Logged out successfully"}`
+- **Error Response (`400 Bad Request`)**: `{"status": "error", "message": "No active session"}`
+
+
+### Token Validation for Protected Endpoints
+All protected endpoints validate authentication credentials on every request.
+
+**Current Method: Token-Based (Header)**
+- The client must include an `Authorization` header.
+- The token can be either the **full JWT** or the **access\_token\_id (UUID)**. The backend middleware is designed to handle both formats seamlessly.
+- **Format**: `Authorization: Bearer {jwt_or_uuid}`
+
+**Temporarily Disabled: Cookie-Based**
+- ⚠️ Cookie-based authentication is temporarily disabled.
+- Previously, browsers could send the `jwt-id` cookie with each request, but this functionality is currently unavailable.
+
+- **Common Error Response (`401 Unauthorized`)**:
+  ```json
+
+  {
+    "error": "Authentication required"
+  }
+  ```
 
 ## Protected Endpoints
 
 ### Get User Profile
-- **URL**: `/api/profile`
+- **URL**: `/api/v1/profile`
 - **Method**: `GET`
-- **Authentication**:
-  - Cookie-based: Requires valid `jwt-id` cookie
-- **Success Response**: 
-  - **Code**: 200 OK
+- **Authentication**: Required (`Authorization: Bearer` header with access_token_id)
+- **Success Response (Code `200 OK`)**:
   - **Content**: 
     ```json
     {
@@ -295,17 +202,10 @@
       }
     }
     ```
-- **Error Response**: 
-  - **Code**: 401 Unauthorized
-    ```json
-    {
-      "status": "error",
-      "message": "Not authenticated"
-    }
-    ```
+- **Error Response (`401 Unauthorized`)**: `{"error": "Not authenticated"}`
 
 ### Get Auth User Profile (Example)
-- **URL**: `/api/auth/profile`
+- **URL**: `/api/v1/auth/profile`
 - **Method**: `GET`
 - **Headers**: 
   - `Authorization: Bearer {access_token}`
@@ -352,14 +252,14 @@
   - **Content**: User object with ID
 
 ### Get all users
-- **URL**: `/api/users`
+- **URL**: `/api/v1/users`
 - **Method**: `GET`
 - **Success Response**: 
   - **Code**: 200 OK
   - **Content**: Array of user objects
 
 ### Get user by ID
-- **URL**: `/api/users/{id}`
+- **URL**: `/api/v1/users/{id}`
 - **Method**: `GET`
 - **URL Parameters**: `id=[uint]`
 - **Success Response**: 
@@ -369,7 +269,7 @@
   - **Code**: 404 Not Found
 
 ### Get user by email
-- **URL**: `/api/users/email/{email}`
+- **URL**: `/api/v1/users/email/{email}`
 - **Method**: `GET`
 - **URL Parameters**: `email=[string]`
 - **Success Response**: 
@@ -379,7 +279,7 @@
   - **Code**: 404 Not Found
 
 ### Get users by role
-- **URL**: `/api/users/role/{role}`
+- **URL**: `/api/v1/users/role/{role}`
 - **Method**: `GET`
 - **URL Parameters**: `role=[string]`
 - **Success Response**: 
@@ -387,7 +287,7 @@
   - **Content**: Array of user objects
 
 ### Update a user
-- **URL**: `/api/users/{id}`
+- **URL**: `/api/v1/users/{id}`
 - **Method**: `PUT`
 - **URL Parameters**: `id=[uint]`
 - **Request Body**: Same as create user
@@ -398,7 +298,7 @@
   - **Code**: 404 Not Found
 
 ### Delete a user
-- **URL**: `/api/users/{id}`
+- **URL**: `/api/v1/users/{id}`
 - **Method**: `DELETE`
 - **URL Parameters**: `id=[uint]`
 - **Success Response**: 

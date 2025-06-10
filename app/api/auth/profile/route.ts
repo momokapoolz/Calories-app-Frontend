@@ -17,7 +17,7 @@ export async function GET(request: Request) {
         { status: 401 }
       );
     }    // Call the backend profile endpoint
-    const response = await axios.get(`${API_URL}/auth/profile`, {
+    const response = await axios.get(`${API_URL}/profile`, {
       headers: {
         'Authorization': authHeader,
         'Accept': 'application/json',

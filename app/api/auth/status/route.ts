@@ -25,7 +25,7 @@ export async function GET(request: Request) {
     // Add cookie header if present (for cookie-based auth)
     if (cookieHeader) {
       headers['Cookie'] = cookieHeader;    }    // Call the backend profile endpoint instead of auth/status
-    const response = await axios.get(`${API_URL}/auth/profile`, {
+    const response = await axios.get(`${API_URL}/profile`, {
       headers,
     });
     
