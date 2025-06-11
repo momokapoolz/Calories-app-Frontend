@@ -106,21 +106,30 @@ function safeLocalStorageGet(key: string): string | null {
 /**
  * Register a new user
  */
-export async function registerUser(data: RegisterData): Promise<LoginResponse> {
+export async function registerUser(data: RegisterData): Promise<{status: string, message: string}> {
   try {
-    const response = await api.post<LoginResponse>('/register', data);
+    // Use the provided API endpoint
+    const response = await axios.post('http://localhost:8080/api/v1/register', data, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
     
-    // Store authentication data
-    if (response.data.data?.tokens) {
-      safeLocalStorage('accessToken', response.data.data.tokens.access_token_id.toString());
-      safeLocalStorage('refreshToken', response.data.data.tokens.refresh_token_id.toString());
-      safeLocalStorage('user', JSON.stringify(response.data.data.user));
-    }
-
+    // Don't store authentication data - user should login after registration
     return response.data;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Registration error:', error);
-    return handleApiError(error);
+    
+    // Handle axios error responses
+    if (error.response) {
+      const errorData = error.response.data;
+      const errorMessage = errorData.message || errorData.error || `Error: ${error.response.status}`;
+      throw new Error(errorMessage);
+    } else if (error.request) {
+      throw new Error('No response received from server. Please check your connection.');
+    } else {
+      throw new Error(error.message || 'An unknown error occurred');
+    }
   }
 }
 

@@ -74,7 +74,7 @@ export default function Dashboard() {
         const response = await fetch(`http://localhost:8080/api/v1/dashboard/?date=${today}`, {
           method: 'GET', // Explicitly set method, good practice
           headers: headers,
-          credentials: 'include', // Keep this if your app also uses cookies for other things or as a fallback
+          // credentials: 'include', // Keep this if your app also uses cookies for other things or as a fallback
         })
         
         if (response.status === 404) {

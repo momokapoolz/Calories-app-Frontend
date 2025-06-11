@@ -53,8 +53,9 @@ type RegisterFormValues = z.infer<typeof registerSchema>
 
 export default function RegisterPage() {
   const router = useRouter()
-  const { isAuthenticated, refreshAuth } = useAuth()
+  const { isAuthenticated } = useAuth()
   const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   
   // Redirect if already authenticated
@@ -82,15 +83,19 @@ export default function RegisterPage() {
   async function onSubmit(data: RegisterFormValues) {
     setIsLoading(true)
     setError(null)
+    setSuccess(null)
     
     try {
-      await registerUser(data)
+      const response = await registerUser(data)
       
-      // Refresh auth context
-      await refreshAuth()
+      // Show success message
+      setSuccess("Account created successfully! Redirecting to login...")
       
-      // Redirect to dashboard
-      router.push("/dashboard")
+      // Redirect to login page after a short delay
+      setTimeout(() => {
+        router.push("/login")
+      }, 2000)
+      
     } catch (err) {
       console.error("Registration error:", err)
       setError(err instanceof Error ? err.message : "An unexpected error occurred")
@@ -117,6 +122,11 @@ export default function RegisterPage() {
           {error && (
             <Alert variant="destructive" className="mb-4">
               <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+          {success && (
+            <Alert variant="default" className="mb-4 border-green-200 bg-green-50 text-green-800">
+              <AlertDescription>{success}</AlertDescription>
             </Alert>
           )}
 
