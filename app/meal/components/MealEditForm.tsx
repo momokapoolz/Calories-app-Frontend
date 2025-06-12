@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { Plus, X } from "lucide-react"
+import { useState, useEffect } from "react"
+import { Edit, Plus, X } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -35,7 +35,7 @@ import {
 import { useToast } from "@/components/ui/use-toast"
 import { FoodSearch } from "./FoodSearch"
 import { useFood } from "@/app/food/hooks/useFood"
-import { MealType, CreateMealLog, CreateMealLogItem } from "../types"
+import { MealType, CreateMealLog, CreateMealLogItem, MealLog } from "../types"
 
 const MEAL_TYPES = ["Breakfast", "Lunch", "Dinner", "Snacks"] as const
 
@@ -50,14 +50,14 @@ const mealFormSchema = z.object({
 
 type MealFormData = z.infer<typeof mealFormSchema>
 
-interface MealFormProps {
-  onSubmit: (data: CreateMealLog) => Promise<void>
-  defaultValues?: Partial<MealFormData>
+interface MealEditFormProps {
+  meal: MealLog
+  onSubmit: (id: number, data: CreateMealLog) => Promise<void>
   buttonText?: React.ReactNode
   className?: string
 }
 
-export function MealForm({ onSubmit, defaultValues, buttonText, className }: MealFormProps) {
+export function MealEditForm({ meal, onSubmit, buttonText, className }: MealEditFormProps) {
   const [open, setOpen] = useState(false)
   const { toast } = useToast()
   const [selectedFoodItems, setSelectedFoodItems] = useState<CreateMealLogItem[]>([])
@@ -66,28 +66,41 @@ export function MealForm({ onSubmit, defaultValues, buttonText, className }: Mea
   const form = useForm<MealFormData>({
     resolver: zodResolver(mealFormSchema),
     defaultValues: {
-      meal_type: defaultValues?.meal_type || "Breakfast",
-      items: defaultValues?.items || [],
+      meal_type: meal.meal_type,
+      items: meal.items?.map(item => ({
+        food_id: item.food_id,
+        quantity: item.quantity,
+        quantity_grams: item.quantity_grams,
+      })) || [],
     },
   })
 
+  // Initialize selected food items when the dialog opens
+  useEffect(() => {
+    if (open && meal.items) {
+      setSelectedFoodItems(meal.items.map(item => ({
+        food_id: item.food_id,
+        quantity: item.quantity,
+        quantity_grams: item.quantity_grams,
+      })))
+    }
+  }, [open, meal.items])
+
   const handleSubmit = async (data: MealFormData) => {
     try {
-      await onSubmit({
+      await onSubmit(meal.id, {
         meal_type: data.meal_type,
         items: selectedFoodItems,
       })
       setOpen(false)
-      form.reset()
-      setSelectedFoodItems([])
       toast({
         title: "Success",
-        description: "Meal log created successfully",
+        description: "Meal log updated successfully",
       })
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to create meal log",
+        description: "Failed to update meal log",
         variant: "destructive",
       })
     }
@@ -95,15 +108,6 @@ export function MealForm({ onSubmit, defaultValues, buttonText, className }: Mea
 
   const handleAddFoodItem = (item: CreateMealLogItem) => {
     setSelectedFoodItems(prev => [...prev, item])
-  }
-
-  const handleAddNewFoodItem = () => {
-    // Simple manual food item addition as fallback
-    setSelectedFoodItems(prev => [...prev, {
-      food_id: Date.now(), // Temporary ID
-      quantity: 1,
-      quantity_grams: 100,
-    }])
   }
 
   const handleRemoveFoodItem = (index: number) => {
@@ -118,25 +122,54 @@ export function MealForm({ onSubmit, defaultValues, buttonText, className }: Mea
     )
   }
 
+  const handleAddNewFoodItem = () => {
+    // Simple manual food item addition as fallback
+    setSelectedFoodItems(prev => [...prev, {
+      food_id: Date.now(), // Temporary ID
+      quantity: 1,
+      quantity_grams: 100,
+    }])
+  }
+
+  const handleDialogClose = () => {
+    setOpen(false)
+    // Reset form and selected items when closing
+    form.reset({
+      meal_type: meal.meal_type,
+      items: meal.items?.map(item => ({
+        food_id: item.food_id,
+        quantity: item.quantity,
+        quantity_grams: item.quantity_grams,
+      })) || [],
+    })
+    if (meal.items) {
+      setSelectedFoodItems(meal.items.map(item => ({
+        food_id: item.food_id,
+        quantity: item.quantity,
+        quantity_grams: item.quantity_grams,
+      })))
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className={className}>
+        <Button variant="ghost" size="sm" className={className}>
           {buttonText || (
             <>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Meal
+              <Edit className="mr-2 h-4 w-4" />
+              Edit
             </>
           )}
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)}>
             <DialogHeader>
-              <DialogTitle>Create New Meal</DialogTitle>
+              <DialogTitle>Edit Meal Log</DialogTitle>
               <DialogDescription>
-                Add food items to your meal log. Click save when you're done.
+                Update your meal log. Click save when you're done.
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
@@ -148,7 +181,7 @@ export function MealForm({ onSubmit, defaultValues, buttonText, className }: Mea
                     <FormLabel>Meal Type</FormLabel>
                     <Select
                       onValueChange={field.onChange}
-                      defaultValue={field.value}
+                      value={field.value}
                     >
                       <FormControl>
                         <SelectTrigger>
@@ -168,7 +201,7 @@ export function MealForm({ onSubmit, defaultValues, buttonText, className }: Mea
                 )}
               />
 
-              <div className="space-y-4">
+                              <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <FormLabel>Food Items</FormLabel>
                   <Button
@@ -188,6 +221,7 @@ export function MealForm({ onSubmit, defaultValues, buttonText, className }: Mea
                   <FoodSearch onSelectFood={handleAddFoodItem} />
                 </div>
                 
+                {/* Existing food items */}
                 {selectedFoodItems.length > 0 && (
                   <div className="space-y-2">
                     {selectedFoodItems.map((item, index) => (
@@ -200,7 +234,9 @@ export function MealForm({ onSubmit, defaultValues, buttonText, className }: Mea
                             <div>
                               <label className="text-xs text-muted-foreground">Food</label>
                               <div className="text-sm font-medium">
-                                {foods.find(f => f.id === item.food_id)?.name || `Food ID: ${item.food_id}`}
+                                {foods.find(f => f.id === item.food_id)?.name || 
+                                 meal.items?.find(mealItem => mealItem.food_id === item.food_id)?.food_name || 
+                                 `Food ID: ${item.food_id}`}
                               </div>
                               <Input
                                 type="number"
@@ -242,7 +278,7 @@ export function MealForm({ onSubmit, defaultValues, buttonText, className }: Mea
                             onClick={() => handleRemoveFoodItem(index)}
                             className="text-red-500 hover:text-red-700"
                           >
-                            Remove
+                            <X className="h-4 w-4" />
                           </Button>
                         </div>
                       </div>
@@ -257,9 +293,19 @@ export function MealForm({ onSubmit, defaultValues, buttonText, className }: Mea
                 )}
               </div>
             </div>
-            <DialogFooter>
-              <Button type="submit" disabled={selectedFoodItems.length === 0}>
-                Save Meal
+            <DialogFooter className="gap-2">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={handleDialogClose}
+              >
+                Cancel
+              </Button>
+              <Button 
+                type="submit" 
+                disabled={selectedFoodItems.length === 0}
+              >
+                Update Meal
               </Button>
             </DialogFooter>
           </form>
