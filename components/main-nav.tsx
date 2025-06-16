@@ -29,8 +29,8 @@ export function MainNav() {
           <h1 className="text-xl font-bold">NutriTrack</h1>
         </div>        <nav className="hidden md:flex items-center gap-6">
           <Link 
-            href="/" 
-            className={`text-sm font-medium ${pathname === "/" ? "text-foreground" : "text-muted-foreground"}`}
+            href="/dashboard" 
+            className={`text-sm font-medium ${pathname === "/dashboard" ? "text-foreground" : "text-muted-foreground"}`}
           >
             Dashboard
           </Link>
@@ -58,6 +58,12 @@ export function MainNav() {
           >
             Settings
           </Link>
+          <Link 
+            href="/profile" 
+            className={`text-sm font-medium ${pathname === "/profile" ? "text-foreground" : "text-muted-foreground"}`}
+          >
+            Profile
+          </Link>
         </nav>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm">
@@ -66,11 +72,16 @@ export function MainNav() {
           </Button>          {isAuthenticated ? (
             <div className="flex items-center gap-2">
               {user && <span className="text-sm font-medium">{user.name}</span>}
-              <Button variant="ghost" size="icon" className="rounded-full">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="rounded-full"
+                onClick={() => router.push("/profile")}
+              >
                 <img
                   src="/placeholder.svg?height=32&width=32"
                   alt="Avatar"
-                  className="rounded-full"
+                  className="rounded-full cursor-pointer"
                   height={32}
                   width={32}
                 />

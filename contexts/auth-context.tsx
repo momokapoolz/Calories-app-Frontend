@@ -9,6 +9,14 @@ interface User {
   id: number
   name: string
   email: string
+  age?: number
+  gender?: string
+  weight?: number
+  height?: number
+  goal?: string
+  activity_level?: string
+  role?: string
+  created_at?: string
 }
 
 interface AuthContextType {
@@ -114,15 +122,35 @@ export function AuthProvider({ children }: AuthProviderProps) {
       console.log('Auth profile response status:', response.status)
       console.log('Auth profile response data:', response.data)
 
-      // Backend returns user info directly, not wrapped in authenticated field
-      if (response.data && (response.data.user_id || response.data.id || response.data.email)) {
-        // Transform backend response to match our User interface
+      // Backend returns user info in { status: "success", data: { user: {...} } } format for profile endpoint
+      if (response.data?.status === 'success' && response.data?.data?.user) {
+        // Use the complete profile data from the API
+        const profileData = response.data.data.user
+        const userData = {
+          id: profileData.id,
+          name: profileData.name,
+          email: profileData.email,
+          age: profileData.age,
+          gender: profileData.gender,
+          weight: profileData.weight,
+          height: profileData.height,
+          goal: profileData.goal,
+          activity_level: profileData.activity_level,
+          role: profileData.role,
+          created_at: profileData.created_at
+        }
+        console.log('User authenticated, setting complete profile data:', userData)
+        setUser(userData)
+        // Store user data for next time
+        localStorage.setItem('user', JSON.stringify(userData))
+      } else if (response.data && (response.data.user_id || response.data.id || response.data.email)) {
+        // Fallback for other endpoint formats
         const userData = {
           id: response.data.user_id || response.data.id,
           name: response.data.name || response.data.email?.split('@')[0] || 'User',
           email: response.data.email
         }
-        console.log('User authenticated, setting user data:', userData)
+        console.log('User authenticated, setting basic user data:', userData)
         setUser(userData)
         // Store user data for next time
         localStorage.setItem('user', JSON.stringify(userData))
