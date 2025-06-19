@@ -19,6 +19,7 @@ import { ProtectedRoute } from "@/components/protected-route"
 import { MainNav } from "@/components/main-nav"
 import { MealForm } from "./components/MealForm"
 import { MealEditForm } from "./components/MealEditForm"
+import { MealLogDashboard } from "./components/MealLogDashboard"
 import { useMealLogs } from "./hooks/useMealLogs"
 import { useFood } from "@/app/food/hooks/useFood"
 import { MealLog, MealType, CreateMealLog } from "./types"
@@ -292,14 +293,20 @@ export default function MealPage() {
               )}
 
               {/* Meal Tabs */}
-              <Tabs defaultValue={MEAL_TYPES[0].toLowerCase()}>
+              <Tabs defaultValue="dashboard">
                 <TabsList>
+                  <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
                   {MEAL_TYPES.map((type) => (
                     <TabsTrigger key={type} value={type.toLowerCase()}>
                       {type}
                     </TabsTrigger>
                   ))}
                 </TabsList>
+                
+                {/* Dashboard Tab */}
+                <TabsContent value="dashboard" className="mt-4">
+                  <MealLogDashboard />
+                </TabsContent>
                 
                 {MEAL_TYPES.map((type) => (
                   <TabsContent key={type} value={type.toLowerCase()} className="mt-4">

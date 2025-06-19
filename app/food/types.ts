@@ -4,6 +4,7 @@ export interface Food {
   name: string
   serving_size_gram: number
   source: string
+  image_url?: string
 }
 
 // Frontend Food type with calculated nutrition (from food-nutrients)
@@ -19,6 +20,7 @@ export interface CreateFood {
   name: string
   serving_size_gram: number
   source: string
+  image_url?: string
 }
 
 export interface UpdateFood extends CreateFood {

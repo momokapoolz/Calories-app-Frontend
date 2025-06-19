@@ -14,6 +14,7 @@ import { MainNav } from "@/components/main-nav"
 import { useFood } from "./hooks/useFood"
 import { FoodForm } from "./components/FoodForm"
 import { NutritionForm } from "./components/NutritionForm"
+import { FoodCard } from "./components/FoodCard"
 import { useState } from "react"
 
 export default function FoodPage() {
@@ -94,72 +95,17 @@ export default function FoodPage() {
                     ) : filteredFoods.length > 0 ? (
                       <div className="grid gap-4">
                         {filteredFoods.map((food) => (
-                          <div key={food.id} className="flex items-center justify-between p-4 border rounded">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-2">
-                                <h3 className="font-medium">{food.name}</h3>
-                                <Badge variant={food.source === 'USER' ? 'default' : 'secondary'}>
-                                  {food.source}
-                                </Badge>
-                              </div>
-                              <div className="text-sm text-muted-foreground">
-                                <span>Serving: {food.serving_size_gram}g</span>
-                                {(food.calories || 0) > 0 && (
-                                  <span className="ml-4">
-                                    {food.calories} cal | {food.protein}g protein | {food.carbs}g carbs | {food.fat}g fat
-                                  </span>
-                                )}
-                              </div>
-                              {food.nutrients && food.nutrients.length > 0 && (
-                                <div className="flex gap-1 mt-2">
-                                  {food.nutrients.slice(0, 3).map((nutrient) => (
-                                    <Badge key={nutrient.id} variant="outline" className="text-xs">
-                                      {nutrient.nutrient?.name}: {nutrient.amount_per_100g}g
-                                    </Badge>
-                                  ))}
-                                  {food.nutrients.length > 3 && (
-                                    <Badge variant="outline" className="text-xs">
-                                      +{food.nutrients.length - 3} more
-                                    </Badge>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                            <div className="flex gap-2 ml-4">
-                              <Dialog>
-                                <DialogTrigger asChild>
-                                  <Button variant="outline" size="sm">
-                                    <Beaker className="h-4 w-4 mr-1" />
-                                    Nutrition
-                                  </Button>
-                                </DialogTrigger>
-                                <DialogContent className="max-w-2xl">
-                                  <DialogHeader>
-                                    <DialogTitle>Manage Nutrition - {food.name}</DialogTitle>
-                                  </DialogHeader>
-                                  <NutritionForm
-                                    food={food}
-                                    nutrients={nutrients}
-                                    onAddNutrient={addFoodNutrient}
-                                    onUpdateNutrient={editFoodNutrient}
-                                    onRemoveNutrient={removeFoodNutrient}
-                                  />
-                                </DialogContent>
-                              </Dialog>
-                              <FoodForm 
-                                food={food} 
-                                onSubmit={(data) => editFood(food.id!, data)}
-                                buttonText={<Edit className="h-4 w-4" />}
-                              />
-                              <Button 
-                                variant="destructive" 
-                                size="sm"
-                                onClick={() => removeFood(food.id!)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </div>
+                          <FoodCard
+                            key={food.id}
+                            food={food}
+                            nutrients={nutrients}
+                            onEdit={editFood}
+                            onDelete={removeFood}
+                            onAddNutrient={addFoodNutrient}
+                            onUpdateNutrient={editFoodNutrient}
+                            onRemoveNutrient={removeFoodNutrient}
+                            showEditActions={true}
+                          />
                         ))}
                       </div>
                     ) : (
@@ -187,53 +133,17 @@ export default function FoodPage() {
                     {userFoods.length > 0 ? (
                       <div className="grid gap-4">
                         {userFoods.map((food) => (
-                          <div key={food.id} className="flex items-center justify-between p-4 border rounded">
-                            <div className="flex-1">
-                              <h3 className="font-medium">{food.name}</h3>
-                              <div className="text-sm text-muted-foreground">
-                                <span>Serving: {food.serving_size_gram}g</span>
-                                {(food.calories || 0) > 0 && (
-                                  <span className="ml-4">
-                                    {food.calories} cal | {food.protein}g protein | {food.carbs}g carbs | {food.fat}g fat
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            <div className="flex gap-2 ml-4">
-                              <Dialog>
-                                <DialogTrigger asChild>
-                                  <Button variant="outline" size="sm">
-                                    <Beaker className="h-4 w-4 mr-1" />
-                                    Nutrition
-                                  </Button>
-                                </DialogTrigger>
-                                <DialogContent className="max-w-2xl">
-                                  <DialogHeader>
-                                    <DialogTitle>Manage Nutrition - {food.name}</DialogTitle>
-                                  </DialogHeader>
-                                  <NutritionForm
-                                    food={food}
-                                    nutrients={nutrients}
-                                    onAddNutrient={addFoodNutrient}
-                                    onUpdateNutrient={editFoodNutrient}
-                                    onRemoveNutrient={removeFoodNutrient}
-                                  />
-                                </DialogContent>
-                              </Dialog>
-                              <FoodForm 
-                                food={food} 
-                                onSubmit={(data) => editFood(food.id!, data)}
-                                buttonText={<Edit className="h-4 w-4" />}
-                              />
-                              <Button 
-                                variant="destructive" 
-                                size="sm"
-                                onClick={() => removeFood(food.id!)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </div>
+                          <FoodCard
+                            key={food.id}
+                            food={food}
+                            nutrients={nutrients}
+                            onEdit={editFood}
+                            onDelete={removeFood}
+                            onAddNutrient={addFoodNutrient}
+                            onUpdateNutrient={editFoodNutrient}
+                            onRemoveNutrient={removeFoodNutrient}
+                            showEditActions={true}
+                          />
                         ))}
                       </div>
                     ) : (
@@ -259,53 +169,22 @@ export default function FoodPage() {
                     {databaseFoods.length > 0 ? (
                       <div className="grid gap-4">
                         {databaseFoods.map((food) => (
-                          <div key={food.id} className="flex items-center justify-between p-4 border rounded">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-2">
-                                <h3 className="font-medium">{food.name}</h3>
-                                <Badge variant="secondary">{food.source}</Badge>
-                              </div>
-                              <div className="text-sm text-muted-foreground">
-                                <span>Serving: {food.serving_size_gram}g</span>
-                                {(food.calories || 0) > 0 && (
-                                  <span className="ml-4">
-                                    {food.calories} cal | {food.protein}g protein | {food.carbs}g carbs | {food.fat}g fat
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            <div className="flex gap-2 ml-4">
-                              <Dialog>
-                                <DialogTrigger asChild>
-                                  <Button variant="outline" size="sm">
-                                    <Beaker className="h-4 w-4 mr-1" />
-                                    View Nutrition
-                                  </Button>
-                                </DialogTrigger>
-                                <DialogContent className="max-w-2xl">
-                                  <DialogHeader>
-                                    <DialogTitle>Nutrition Information - {food.name}</DialogTitle>
-                                  </DialogHeader>
-                                  <NutritionForm
-                                    food={food}
-                                    nutrients={nutrients}
-                                    onAddNutrient={addFoodNutrient}
-                                    onUpdateNutrient={editFoodNutrient}
-                                    onRemoveNutrient={removeFoodNutrient}
-                                  />
-                                </DialogContent>
-                              </Dialog>
-                              <Button 
-                                size="sm"
-                                onClick={() => {
-                                  // Add to meal functionality here
-                                  console.log('Add to meal:', food)
-                                }}
-                              >
-                                Add to Meal
-                              </Button>
-                            </div>
-                          </div>
+                          <FoodCard
+                            key={food.id}
+                            food={food}
+                            nutrients={nutrients}
+                            onEdit={editFood}
+                            onDelete={removeFood}
+                            onAddNutrient={addFoodNutrient}
+                            onUpdateNutrient={editFoodNutrient}
+                            onRemoveNutrient={removeFoodNutrient}
+                            showEditActions={false}
+                            showAddToMeal={true}
+                            onAddToMeal={(food) => {
+                              // Add to meal functionality here
+                              console.log('Add to meal:', food)
+                            }}
+                          />
                         ))}
                       </div>
                     ) : (

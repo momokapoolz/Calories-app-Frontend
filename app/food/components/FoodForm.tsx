@@ -17,7 +17,8 @@ export function FoodForm({ food, onSubmit, buttonText = "Add Custom Food" }: Foo
   const [formData, setFormData] = useState<CreateFood>({
     name: food?.name || '',
     serving_size_gram: food?.serving_size_gram || 100,
-    source: food?.source || 'USER'
+    source: food?.source || 'USER',
+    image_url: food?.image_url || ''
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -27,7 +28,7 @@ export function FoodForm({ food, onSubmit, buttonText = "Add Custom Food" }: Foo
       setIsOpen(false);
       // Reset form only if adding new food (not editing)
       if (!food) {
-        setFormData({ name: '', serving_size_gram: 100, source: 'USER' });
+        setFormData({ name: '', serving_size_gram: 100, source: 'USER', image_url: '' });
       }
     } catch (error) {
       console.error('Failed to submit food:', error);
@@ -83,6 +84,16 @@ export function FoodForm({ food, onSubmit, buttonText = "Add Custom Food" }: Foo
               onChange={(e) => setFormData(prev => ({ ...prev, source: e.target.value }))}
               placeholder="Enter food source (e.g., USDA, USER)"
               required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="image_url">Image URL (optional)</Label>
+            <Input
+              id="image_url"
+              type="url"
+              value={formData.image_url || ''}
+              onChange={(e) => setFormData(prev => ({ ...prev, image_url: e.target.value }))}
+              placeholder="Enter image URL"
             />
           </div>
           <div className="flex justify-end space-x-2">
