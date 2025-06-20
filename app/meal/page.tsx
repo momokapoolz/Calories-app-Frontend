@@ -51,6 +51,12 @@ export default function MealPage() {
 
   const formattedDate = format(selectedDate, "PPP")
 
+  // Load today's meals on component mount
+  useEffect(() => {
+    // Load today's meals when component mounts
+    fetchMealLogsByDate(formatDateForAPI(new Date()))
+  }, [])
+
   // Filter meals based on current view mode and selected date(s)
   const filteredMeals = mealLogs.filter((meal: MealLog) => {
     const mealDate = new Date(meal.created_at)

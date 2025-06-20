@@ -63,10 +63,12 @@ export function FoodSearch({ onSelectFood }: FoodSearchProps) {
 
   const handleSubmit = (data: FoodItemFormData) => {
     if (selectedFoodId) {
+      const selectedFood = foods.find(f => f.id === selectedFoodId)
       onSelectFood({
         food_id: selectedFoodId,
         quantity: data.quantity,
         quantity_grams: data.quantity_grams,
+        food_name: selectedFood?.name || `Food ID: ${selectedFoodId}`
       })
       setDialogOpen(false)
       setSelectedFoodId(null)
@@ -99,7 +101,7 @@ export function FoodSearch({ onSelectFood }: FoodSearchProps) {
             >
               <div className="font-medium">{food.name}</div>
               <div className="text-sm text-muted-foreground">
-                {food.serving_size_gram}g | {food.calories} kcal
+                {food.serving_size_gram}g serving | {food.calories || 0} kcal | P: {food.protein || 0}g | C: {food.carbs || 0}g | F: {food.fat || 0}g
               </div>
             </div>
           ))}

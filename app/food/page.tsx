@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { CalendarDays, ChevronDown, Filter, Plus, Search, Utensils, Trash2, Edit, Beaker } from "lucide-react"
+import { CalendarDays, ChevronDown, Filter, Plus, Search, Utensils, Beaker } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -24,8 +24,6 @@ export default function FoodPage() {
     loading, 
     error, 
     addFood, 
-    editFood, 
-    removeFood,
     addFoodNutrient,
     editFoodNutrient,
     removeFoodNutrient
@@ -99,12 +97,10 @@ export default function FoodPage() {
                             key={food.id}
                             food={food}
                             nutrients={nutrients}
-                            onEdit={editFood}
-                            onDelete={removeFood}
                             onAddNutrient={addFoodNutrient}
                             onUpdateNutrient={editFoodNutrient}
                             onRemoveNutrient={removeFoodNutrient}
-                            showEditActions={true}
+                            showEditActions={false}
                           />
                         ))}
                       </div>
@@ -137,12 +133,10 @@ export default function FoodPage() {
                             key={food.id}
                             food={food}
                             nutrients={nutrients}
-                            onEdit={editFood}
-                            onDelete={removeFood}
                             onAddNutrient={addFoodNutrient}
                             onUpdateNutrient={editFoodNutrient}
                             onRemoveNutrient={removeFoodNutrient}
-                            showEditActions={true}
+                            showEditActions={false}
                           />
                         ))}
                       </div>
@@ -173,8 +167,6 @@ export default function FoodPage() {
                             key={food.id}
                             food={food}
                             nutrients={nutrients}
-                            onEdit={editFood}
-                            onDelete={removeFood}
                             onAddNutrient={addFoodNutrient}
                             onUpdateNutrient={editFoodNutrient}
                             onRemoveNutrient={removeFoodNutrient}

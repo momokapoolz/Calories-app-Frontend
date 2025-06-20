@@ -29,6 +29,7 @@ export interface CreateMealLogItem {
   food_id: number
   quantity: number
   quantity_grams: number
+  food_name?: string
 }
 
 export interface CreateMealLog {

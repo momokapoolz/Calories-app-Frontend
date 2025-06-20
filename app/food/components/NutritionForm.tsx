@@ -14,6 +14,7 @@ interface NutritionFormProps {
   onAddNutrient: (foodId: number, nutrientData: CreateFoodNutrient) => Promise<any>;
   onUpdateNutrient: (foodId: number, nutrientId: number, nutrientData: CreateFoodNutrient) => Promise<any>;
   onRemoveNutrient: (foodId: number, nutrientId: number) => Promise<void>;
+  readOnly?: boolean;
 }
 
 export function NutritionForm({ 
@@ -21,7 +22,8 @@ export function NutritionForm({
   nutrients, 
   onAddNutrient, 
   onUpdateNutrient, 
-  onRemoveNutrient 
+  onRemoveNutrient,
+  readOnly = false
 }: NutritionFormProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedNutrientId, setSelectedNutrientId] = useState<string>('');
@@ -36,7 +38,7 @@ export function NutritionForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!selectedNutrientId || !amount || !food.id) return;
+    if (readOnly || !selectedNutrientId || !amount || !food.id) return;
 
     const nutrientData: CreateFoodNutrient = {
       food_id: food.id,
@@ -62,6 +64,8 @@ export function NutritionForm({
   };
 
   const handleEdit = (foodNutrient: FoodNutrient) => {
+    if (readOnly) return;
+    
     setEditingNutrient(foodNutrient);
     setSelectedNutrientId(foodNutrient.nutrient_id.toString());
     setAmount(foodNutrient.amount_per_100g.toString());
@@ -69,7 +73,7 @@ export function NutritionForm({
   };
 
   const handleRemove = async (foodNutrient: FoodNutrient) => {
-    if (!food.id || !foodNutrient.id) return;
+    if (readOnly || !food.id || !foodNutrient.id) return;
     
     try {
       await onRemoveNutrient(food.id, foodNutrient.id);
@@ -88,65 +92,67 @@ export function NutritionForm({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-medium">Nutrition Information</h3>
-        <Dialog open={isOpen} onOpenChange={(open) => {
-          setIsOpen(open);
-          if (!open) resetForm();
-        }}>
-          <DialogTrigger asChild>
-            <Button size="sm">
-              <Plus className="mr-2 h-4 w-4" />
-              Add Nutrient
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>
-                {editingNutrient ? 'Edit Nutrient' : 'Add Nutrient'} - {food.name}
-              </DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="nutrient">Nutrient</Label>
-                <Select 
-                  value={selectedNutrientId} 
-                  onValueChange={setSelectedNutrientId}
-                  disabled={!!editingNutrient}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a nutrient" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(editingNutrient ? nutrients : availableNutrients).map((nutrient) => (
-                      <SelectItem key={nutrient.id} value={nutrient.id.toString()}>
-                        {nutrient.name} ({nutrient.category})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="amount">Amount per 100g</Label>
-                <Input
-                  id="amount"
-                  type="number"
-                  step="0.01"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  placeholder="Enter amount per 100g"
-                  required
-                />
-              </div>
-              <div className="flex justify-end space-x-2">
-                <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit">
-                  {editingNutrient ? 'Update' : 'Add'} Nutrient
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
+        {!readOnly && (
+          <Dialog open={isOpen} onOpenChange={(open) => {
+            setIsOpen(open);
+            if (!open) resetForm();
+          }}>
+            <DialogTrigger asChild>
+              <Button size="sm">
+                <Plus className="mr-2 h-4 w-4" />
+                Add Nutrient
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>
+                  {editingNutrient ? 'Edit Nutrient' : 'Add Nutrient'} - {food.name}
+                </DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="nutrient">Nutrient</Label>
+                  <Select 
+                    value={selectedNutrientId} 
+                    onValueChange={setSelectedNutrientId}
+                    disabled={!!editingNutrient}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a nutrient" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(editingNutrient ? nutrients : availableNutrients).map((nutrient) => (
+                        <SelectItem key={nutrient.id} value={nutrient.id.toString()}>
+                          {nutrient.name} ({nutrient.category})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="amount">Amount per 100g</Label>
+                  <Input
+                    id="amount"
+                    type="number"
+                    step="0.01"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    placeholder="Enter amount per 100g"
+                    required
+                  />
+                </div>
+                <div className="flex justify-end space-x-2">
+                  <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit">
+                    {editingNutrient ? 'Update' : 'Add'} Nutrient
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       {/* Display current nutrients */}
@@ -167,27 +173,29 @@ export function NutritionForm({
                   </span>
                 </div>
               </div>
-              <div className="flex space-x-1">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleEdit(foodNutrient)}
-                >
-                  Edit
-                </Button>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => handleRemove(foodNutrient)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
+              {!readOnly && (
+                <div className="flex space-x-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleEdit(foodNutrient)}
+                  >
+                    Edit
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => handleRemove(foodNutrient)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
             </div>
           ))
         ) : (
           <p className="text-muted-foreground text-center py-4">
-            No nutrition information added yet. Click "Add Nutrient" to get started.
+            {readOnly ? 'No nutrition information available.' : 'No nutrition information added yet. Click "Add Nutrient" to get started.'}
           </p>
         )}
       </div>

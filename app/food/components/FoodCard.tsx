@@ -1,18 +1,74 @@
 import Image from "next/image"
-import { Edit, Trash2, Beaker } from "lucide-react"
+import { useState } from "react"
+import { Beaker, ImageOff } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { FoodWithNutrition, Nutrient, FoodNutrient, CreateFoodNutrient } from "../types"
-import { FoodForm } from "./FoodForm"
 import { NutritionForm } from "./NutritionForm"
+
+interface FoodImageProps {
+  src: string | null
+  alt: string
+  className?: string
+}
+
+function FoodImage({ src, alt, className }: FoodImageProps) {
+  const [imageState, setImageState] = useState<'loading' | 'loaded' | 'error'>('loading')
+  const [imageSrc, setImageSrc] = useState(src)
+  const defaultImage = "/placeholder-food.png"
+
+  const handleImageLoad = () => {
+    setImageState('loaded')
+  }
+
+  const handleImageError = () => {
+    if (imageSrc !== defaultImage) {
+      setImageSrc(defaultImage)
+      setImageState('loading') // Will try to load the default image
+    } else {
+      setImageState('error') // Even default image failed
+    }
+  }
+
+  const effectiveSrc = imageSrc || defaultImage
+
+  return (
+    <div className={`relative ${className} bg-muted rounded-lg overflow-hidden`}>
+      {/* Loading state */}
+      {imageState === 'loading' && (
+        <div className="absolute inset-0 flex items-center justify-center bg-muted">
+          <div className="animate-pulse w-8 h-8 bg-muted-foreground/20 rounded-full"></div>
+        </div>
+      )}
+      
+      {/* Error state - show when even placeholder fails */}
+      {imageState === 'error' && (
+        <div className="absolute inset-0 flex items-center justify-center bg-muted">
+          <ImageOff className="w-6 h-6 text-muted-foreground/50" />
+        </div>
+      )}
+
+      {/* Actual image */}
+      <Image
+        src={effectiveSrc}
+        alt={alt}
+        fill
+        className={`object-cover transition-opacity duration-200 ${
+          imageState === 'loaded' ? 'opacity-100' : 'opacity-0'
+        }`}
+        onLoad={handleImageLoad}
+        onError={handleImageError}
+        priority={false}
+      />
+    </div>
+  )
+}
 
 interface FoodCardProps {
   food: FoodWithNutrition
   nutrients: Nutrient[]
-  onEdit: (id: number, data: any) => Promise<any>
-  onDelete: (id: number) => Promise<any>
   onAddNutrient: (foodId: number, nutrientData: CreateFoodNutrient) => Promise<any>
   onUpdateNutrient: (foodId: number, nutrientId: number, nutrientData: CreateFoodNutrient) => Promise<any>
   onRemoveNutrient: (foodId: number, nutrientId: number) => Promise<void>
@@ -24,8 +80,6 @@ interface FoodCardProps {
 export function FoodCard({
   food,
   nutrients,
-  onEdit,
-  onDelete,
   onAddNutrient,
   onUpdateNutrient,
   onRemoveNutrient,
@@ -33,24 +87,15 @@ export function FoodCard({
   showAddToMeal = false,
   onAddToMeal
 }: FoodCardProps) {
-  const defaultImage = "/placeholder-food.png"
-
   return (
-    <div className="flex items-start gap-4 p-4 border rounded-lg">
+    <div className="flex items-start gap-6 p-6 border rounded-lg">
       {/* Food Image */}
       <div className="flex-shrink-0">
-        <div className="relative w-16 h-16 rounded-lg overflow-hidden bg-muted">
-          <Image
-            src={food.image_url || defaultImage}
-            alt={food.name}
-            fill
-            className="object-cover"
-            onError={(e) => {
-              const target = e.target as HTMLImageElement
-              target.src = defaultImage
-            }}
-          />
-        </div>
+        <FoodImage
+          src={food.image_url || null}
+          alt={food.name}
+          className="w-32 h-32"
+        />
       </div>
 
       {/* Food Information */}
@@ -95,13 +140,13 @@ export function FoodCard({
           <DialogTrigger asChild>
             <Button variant="outline" size="sm">
               <Beaker className="h-4 w-4 mr-1" />
-              {showEditActions ? 'Nutrition' : 'View'}
+              View Nutrition
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>
-                {showEditActions ? 'Manage' : 'View'} Nutrition - {food.name}
+                View Nutrition - {food.name}
               </DialogTitle>
             </DialogHeader>
             <NutritionForm
@@ -110,18 +155,10 @@ export function FoodCard({
               onAddNutrient={onAddNutrient}
               onUpdateNutrient={onUpdateNutrient}
               onRemoveNutrient={onRemoveNutrient}
+              readOnly={true}
             />
           </DialogContent>
         </Dialog>
-
-        {/* Edit Button (for user foods) */}
-        {showEditActions && (
-          <FoodForm 
-            food={food} 
-            onSubmit={(data) => onEdit(food.id!, data)}
-            buttonText={<Edit className="h-4 w-4" />}
-          />
-        )}
 
         {/* Add to Meal Button (for database foods) */}
         {showAddToMeal && onAddToMeal && (
@@ -130,17 +167,6 @@ export function FoodCard({
             onClick={() => onAddToMeal(food)}
           >
             Add to Meal
-          </Button>
-        )}
-
-        {/* Delete Button (for user foods) */}
-        {showEditActions && (
-          <Button 
-            variant="destructive" 
-            size="sm"
-            onClick={() => onDelete(food.id!)}
-          >
-            <Trash2 className="h-4 w-4" />
           </Button>
         )}
       </div>

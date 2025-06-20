@@ -41,11 +41,6 @@ const MEAL_TYPES = ["Breakfast", "Lunch", "Dinner", "Snacks"] as const
 
 const mealFormSchema = z.object({
   meal_type: z.enum(MEAL_TYPES),
-  items: z.array(z.object({
-    food_id: z.number(),
-    quantity: z.number().min(0),
-    quantity_grams: z.number().min(0),
-  })).min(1, "Please add at least one food item"),
 })
 
 type MealFormData = z.infer<typeof mealFormSchema>
@@ -67,11 +62,34 @@ export function MealForm({ onSubmit, defaultValues, buttonText, className }: Mea
     resolver: zodResolver(mealFormSchema),
     defaultValues: {
       meal_type: defaultValues?.meal_type || "Breakfast",
-      items: defaultValues?.items || [],
     },
   })
 
   const handleSubmit = async (data: MealFormData) => {
+    // Validate that we have at least one food item
+    if (selectedFoodItems.length === 0) {
+      toast({
+        title: "Validation Error",
+        description: "Please add at least one food item",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Validate that all food items have valid food_ids (not temporary)
+    const hasInvalidItems = selectedFoodItems.some(item => 
+      !foods.some(food => food.id === item.food_id)
+    )
+    
+    if (hasInvalidItems) {
+      toast({
+        title: "Validation Error", 
+        description: "Please ensure all food items are selected from the food database",
+        variant: "destructive",
+      })
+      return
+    }
+
     try {
       await onSubmit({
         meal_type: data.meal_type,
@@ -80,31 +98,23 @@ export function MealForm({ onSubmit, defaultValues, buttonText, className }: Mea
       setOpen(false)
       form.reset()
       setSelectedFoodItems([])
-      toast({
-        title: "Success",
-        description: "Meal log created successfully",
-      })
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to create meal log",
-        variant: "destructive",
-      })
+      // Error handling is done in the parent component
+      console.error('Error in MealForm:', error)
     }
   }
 
   const handleAddFoodItem = (item: CreateMealLogItem) => {
-    setSelectedFoodItems(prev => [...prev, item])
+    // Add food name for better display
+    const food = foods.find(f => f.id === item.food_id)
+    const enhancedItem = {
+      ...item,
+      food_name: food?.name || `Food ID: ${item.food_id}`
+    }
+    setSelectedFoodItems(prev => [...prev, enhancedItem])
   }
 
-  const handleAddNewFoodItem = () => {
-    // Simple manual food item addition as fallback
-    setSelectedFoodItems(prev => [...prev, {
-      food_id: Date.now(), // Temporary ID
-      quantity: 1,
-      quantity_grams: 100,
-    }])
-  }
+
 
   const handleRemoveFoodItem = (index: number) => {
     setSelectedFoodItems(prev => prev.filter((_, i) => i !== index))
@@ -171,15 +181,6 @@ export function MealForm({ onSubmit, defaultValues, buttonText, className }: Mea
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <FormLabel>Food Items</FormLabel>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleAddNewFoodItem}
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Manual Item
-                  </Button>
                 </div>
 
                 {/* Food Search Component */}
@@ -200,15 +201,8 @@ export function MealForm({ onSubmit, defaultValues, buttonText, className }: Mea
                             <div>
                               <label className="text-xs text-muted-foreground">Food</label>
                               <div className="text-sm font-medium">
-                                {foods.find(f => f.id === item.food_id)?.name || `Food ID: ${item.food_id}`}
+                                {item.food_name || foods.find(f => f.id === item.food_id)?.name || `Food ID: ${item.food_id}`}
                               </div>
-                              <Input
-                                type="number"
-                                value={item.food_id}
-                                onChange={(e) => handleUpdateFoodItem(index, { food_id: Number(e.target.value) })}
-                                className="h-8 text-xs"
-                                placeholder="Food ID"
-                              />
                             </div>
                           </div>
                         </div>
