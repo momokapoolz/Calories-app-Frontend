@@ -1,4 +1,4 @@
-import { MealLog, CreateMealLog, CreateMealLogResponse, DateRangeParams } from '../types'
+import { MealLog, CreateMealLog, CreateMealLogResponse, DateRangeParams, MealNutritionCalculation, AddItemsToMealLogRequest, MealLogItemResponse } from '../types'
 
 class MealLogService {
   private baseUrl = '/api/meal-logs'
@@ -194,6 +194,53 @@ class MealLogService {
    */
   getTodayFormatted(): string {
     return this.formatDateForAPI(new Date())
+  }
+
+  /**
+   * Get nutrition calculation for a specific meal
+   * GET /api/nutrition/meal/{mealLogId}
+   */
+  async getMealNutritionCalculation(mealLogId: number): Promise<MealNutritionCalculation> {
+    try {
+      const response = await fetch(`/api/nutrition/meal/${mealLogId}`, {
+        method: 'GET',
+        headers: this.getAuthHeaders(),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
+      }
+
+      return await response.json()
+    } catch (error) {
+      console.error('Error fetching meal nutrition calculation:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Add Items to Meal Log
+   * POST /api/meal-logs/{id}/items
+   */
+  async addItemsToMealLog(mealLogId: number, data: AddItemsToMealLogRequest): Promise<MealLogItemResponse[]> {
+    try {
+      const response = await fetch(`/api/meal-logs/${mealLogId}/items`, {
+        method: 'POST',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify(data),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
+      }
+
+      return await response.json()
+    } catch (error) {
+      console.error('Error adding items to meal log:', error)
+      throw error
+    }
   }
 
   /**

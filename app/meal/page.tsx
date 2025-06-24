@@ -19,17 +19,24 @@ import { ProtectedRoute } from "@/components/protected-route"
 import { MainNav } from "@/components/main-nav"
 import { MealForm } from "./components/MealForm"
 import { MealEditForm } from "./components/MealEditForm"
+import { DailyNutritionDisplay } from "./components/DailyNutritionDisplay"
 import { useMealLogs } from "./hooks/useMealLogs"
+import { useDailyNutrition } from "./hooks/useDailyNutrition"
 import { useFood } from "@/app/food/hooks/useFood"
 import { MealLog, MealType, CreateMealLog } from "./types"
+import { useAuth } from "@/contexts/auth-context"
+import { Alert, AlertCircle, AlertDescription } from "@/components/ui/alert"
 
 const MEAL_TYPES = ["Breakfast", "Lunch", "Dinner", "Snacks"] as const
 
 export default function MealPage() {
+  const { user } = useAuth()
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
   const [viewMode, setViewMode] = useState<"single" | "range">("single")
   const [searchTerm, setSearchTerm] = useState("")
+  const [nutritionRefreshKey, setNutritionRefreshKey] = useState(0)
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null)
   const { toast } = useToast()
 
   const { 
@@ -43,12 +50,36 @@ export default function MealPage() {
     fetchMealLogsByDateRange,
     formatDateForAPI,
     clearError,
+    clearData,
     refreshMealLogs
   } = useMealLogs()
 
   const { foods } = useFood()
 
+  const { 
+    nutritionData,
+    loading: nutritionLoading,
+    error: nutritionError,
+    fetchNutritionByDate,
+    formatDateForAPI: formatNutritionDate,
+    clearError: clearNutritionError,
+    clearAllData: clearNutritionData
+  } = useDailyNutrition()
+
   const formattedDate = format(selectedDate, "PPP")
+
+  // Reset state when user changes
+  useEffect(() => {
+    if (user?.id !== currentUserId) {
+      console.log('MealPage: User changed from', currentUserId, 'to', user?.id, '- resetting page state')
+      setSelectedDate(new Date()) // Reset to today
+      setDateRange(undefined)
+      setViewMode("single")
+      setSearchTerm("")
+      setNutritionRefreshKey(0) // Reset nutrition refresh
+      setCurrentUserId(user?.id || null)
+    }
+  }, [user?.id, currentUserId])
 
   // Filter meals based on current view mode and selected date(s)
   const filteredMeals = mealLogs.filter((meal: MealLog) => {
@@ -81,7 +112,34 @@ export default function MealPage() {
     if (date) {
       setSelectedDate(date)
       setViewMode("single")
-      fetchMealLogsByDate(formatDateForAPI(date))
+      const dateString = formatDateForAPI(date)
+      
+      // Log date selection for debugging
+      console.log(`Date selected: ${dateString} for user: ${user?.email || 'unknown'}`)
+      
+      // First fetch meal logs for the selected date
+      fetchMealLogsByDate(dateString)
+      
+      // Then fetch nutrition data for the selected date
+      // Increment the nutrition refresh key to ensure the DailyNutritionDisplay component re-fetches data
+      setNutritionRefreshKey(prev => prev + 1)
+      
+      // Also directly fetch nutrition data to ensure it's loaded
+      fetchNutritionByDate(dateString)
+        .then(data => {
+          if (data) {
+            console.log(`Successfully fetched nutrition data for ${dateString}:`, {
+              userId: data.user_id,
+              totalCalories: data.total_calories,
+              mealCount: data.MealBreakdown?.length || 0
+            })
+          } else {
+            console.log(`No nutrition data found for ${dateString}`)
+          }
+        })
+        .catch(err => {
+          console.error(`Error fetching nutrition data for ${dateString}:`, err)
+        })
     }
   }
 
@@ -99,12 +157,21 @@ export default function MealPage() {
   // Handle meal creation with toast notification
   const handleAddMealLog = async (data: CreateMealLog): Promise<void> => {
     try {
-      await addMealLog(data)
+      const result = await addMealLog(data)
+      
+      // Only refresh nutrition if we're in single date view
+      if (viewMode === "single") {
+        // Small delay to ensure backend processing completes
+        setTimeout(() => {
+          setNutritionRefreshKey(prev => prev + 1)
+        }, 300)
+      }
       toast({
         title: "Success",
         description: "Meal log created successfully",
       })
     } catch (error) {
+      console.error('Error adding meal log:', error)
       toast({
         title: "Error",
         description: "Failed to create meal log",
@@ -117,6 +184,12 @@ export default function MealPage() {
   const handleUpdateMealLog = async (id: number, data: CreateMealLog): Promise<void> => {
     try {
       await updateMealLog(id, data)
+      // Only refresh nutrition if we're in single date view
+      if (viewMode === "single") {
+        setTimeout(() => {
+          setNutritionRefreshKey(prev => prev + 1)
+        }, 300)
+      }
       toast({
         title: "Success",
         description: "Meal log updated successfully",
@@ -135,6 +208,12 @@ export default function MealPage() {
     if (window.confirm("Are you sure you want to delete this meal log?")) {
       try {
         await deleteMealLog(id)
+        // Only refresh nutrition if we're in single date view
+        if (viewMode === "single") {
+          setTimeout(() => {
+            setNutritionRefreshKey(prev => prev + 1)
+          }, 300)
+        }
         toast({
           title: "Success",
           description: "Meal log deleted successfully",
@@ -149,7 +228,11 @@ export default function MealPage() {
     }
   }
 
-  // Calculate total nutrition for filtered meals
+  // NOTE: We don't auto-refresh nutrition on every date change to prevent excessive API requests.
+  // The DailyNutritionDisplay component handles its own data fetching when the date prop changes.
+  // We only refresh nutrition when meals are added/updated/deleted on the current date.
+
+  // Calculate total nutrition for filtered meals (fallback for range view)
   const totalNutrition = searchFilteredMeals.reduce(
     (acc, meal) => ({
       calories: acc.calories + (meal.total_calories || 0),
@@ -251,21 +334,209 @@ export default function MealPage() {
 
               {/* Error Display */}
               {error && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription className="flex items-center justify-between">
+                    <span>{error}</span>
+                    <Button variant="outline" size="sm" onClick={clearError}>
+                      Dismiss
+                    </Button>
+                  </AlertDescription>
+                </Alert>
+              )}
+              {nutritionError && (
                 <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded flex justify-between items-center">
-                  <span>{error}</span>
-                  <Button variant="ghost" size="sm" onClick={clearError}>
+                  <span>{nutritionError}</span>
+                  <Button variant="ghost" size="sm" onClick={clearNutritionError}>
                     ×
                   </Button>
                 </div>
               )}
 
-              {/* Nutrition Summary Card */}
-              {searchFilteredMeals.length > 0 && (
+              {/* Debug Information for Development */}
+              {process.env.NODE_ENV === 'development' && (
+                <Alert>
+                  <AlertDescription>
+                    <div className="text-xs space-y-1">
+                      <div><strong>Debug Info:</strong></div>
+                      <div>User ID: {user?.id || 'None'}</div>
+                      <div>User Email: {user?.email || 'None'}</div>
+                      <div>Meal Logs Count: {mealLogs.length}</div>
+                      <div>Selected Date: {formatDateForAPI(selectedDate)}</div>
+                      <div>Date Object: {selectedDate.toISOString()}</div>
+                      <div>Local Date String: {selectedDate.toLocaleDateString()}</div>
+                      <div>Loading: {loading ? 'Yes' : 'No'}</div>
+                      <div>Nutrition Loading: {nutritionLoading ? 'Yes' : 'No'}</div>
+                      <div>Has Nutrition Data: {nutritionData ? 'Yes' : 'No'}</div>
+                      <div>Auth Token ID: {localStorage.getItem('accessToken')?.substring(0, 8) || 'None'}...</div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        <em>Note: The app uses UUID token IDs for authentication, not full JWT tokens</em>
+                      </div>
+                      <div className="flex gap-2 mt-2">
+                        <Button size="sm" variant="outline" onClick={() => {
+                          clearData()
+                          clearNutritionData()
+                          const dateString = formatDateForAPI(selectedDate)
+                          fetchMealLogsByDate(dateString)
+                          fetchNutritionByDate(dateString)
+                        }}>
+                          Force Refresh All Data
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => {
+                          console.log('Current state:', {
+                            user: user,
+                            mealLogs: mealLogs,
+                            nutritionData: nutritionData,
+                            token: localStorage.getItem('accessToken')?.substring(0, 20)
+                          })
+                        }}>
+                          Log State
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          onClick={async () => {
+                            try {
+                              // Test different date formatting methods
+                              const date = selectedDate;
+                              
+                              // Method 1: Using toISOString (original method)
+                              const dateIso = date.toISOString().split('T')[0];
+                              
+                              // Method 2: Using UTC components (new method)
+                              const year = date.getUTCFullYear();
+                              const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+                              const day = String(date.getUTCDate()).padStart(2, '0');
+                              const dateUtc = `${year}-${month}-${day}`;
+                              
+                              // Method 3: Using local components
+                              const yearLocal = date.getFullYear();
+                              const monthLocal = String(date.getMonth() + 1).padStart(2, '0');
+                              const dayLocal = String(date.getDate()).padStart(2, '0');
+                              const dateLocal = `${yearLocal}-${monthLocal}-${dayLocal}`;
+                              
+                              console.log('Date formatting comparison:', {
+                                original: date,
+                                iso: dateIso,
+                                utc: dateUtc,
+                                local: dateLocal,
+                                isoTimestamp: date.toISOString(),
+                                utcString: date.toUTCString(),
+                                localString: date.toString()
+                              });
+                              
+                              alert(`Date Formatting Comparison:
+                                Original: ${date}
+                                ISO: ${dateIso}
+                                UTC: ${dateUtc}
+                                Local: ${dateLocal}
+                                
+                                Current format used: ${formatDateForAPI(date)}
+                              `);
+                            } catch (err) {
+                              console.error('Error testing date formats:', err);
+                              alert(`Error: ${err.message}`);
+                            }
+                          }}
+                        >
+                          Test Date Formats
+                        </Button>
+                      </div>
+                      
+                      {/* Direct API Testing Section */}
+                      <div className="mt-4 pt-4 border-t">
+                        <div className="font-medium mb-2">Direct API Testing</div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            onClick={async () => {
+                              try {
+                                const dateString = formatDateForAPI(selectedDate);
+                                const headers = {
+                                  'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+                                  'Content-Type': 'application/json'
+                                };
+                                
+                                console.log(`Testing direct API call to /api/meal-logs/user/date/${dateString}`);
+                                const response = await fetch(`/api/meal-logs/user/date/${dateString}?_t=${new Date().getTime()}`, {
+                                  headers
+                                });
+                                
+                                const data = await response.json();
+                                console.log('Direct meal logs API response:', {
+                                  status: response.status,
+                                  dataLength: Array.isArray(data) ? data.length : 'Not an array',
+                                  data
+                                });
+                                
+                                alert(`Meal Logs API Status: ${response.status}\nFound: ${Array.isArray(data) ? data.length : 'Not an array'} meals`);
+                              } catch (err) {
+                                console.error('Error testing meal logs API:', err);
+                                alert(`Error: ${err.message}`);
+                              }
+                            }}
+                          >
+                            Test Meal Logs API
+                          </Button>
+                          
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            onClick={async () => {
+                              try {
+                                const dateString = formatDateForAPI(selectedDate);
+                                const headers = {
+                                  'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+                                  'Content-Type': 'application/json'
+                                };
+                                
+                                console.log(`Testing direct API call to /api/nutrition/date/${dateString}`);
+                                const response = await fetch(`/api/nutrition/date/${dateString}?_t=${new Date().getTime()}`, {
+                                  headers
+                                });
+                                
+                                const data = await response.json();
+                                console.log('Direct nutrition API response:', {
+                                  status: response.status,
+                                  userId: data?.user_id,
+                                  mealCount: data?.MealBreakdown?.length || 0,
+                                  data
+                                });
+                                
+                                alert(`Nutrition API Status: ${response.status}\nUser ID: ${data?.user_id}\nMeal Count: ${data?.MealBreakdown?.length || 0}`);
+                              } catch (err) {
+                                console.error('Error testing nutrition API:', err);
+                                alert(`Error: ${err.message}`);
+                              }
+                            }}
+                          >
+                            Test Nutrition API
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {/* Daily Nutrition Display */}
+              {viewMode === "single" && (
+                <DailyNutritionDisplay 
+                  date={selectedDate} 
+                  autoFetch={true}
+                  showChart={true}
+                  refreshKey={nutritionRefreshKey}
+                />
+              )}
+
+              {/* Range view - simple nutrition summary */}
+              {viewMode === "range" && searchFilteredMeals.length > 0 && (
                 <Card>
                   <CardHeader>
-                    <CardTitle>Daily Nutrition Summary</CardTitle>
+                    <CardTitle>Range Nutrition Summary</CardTitle>
                     <CardDescription>
-                      Total nutrition for {viewMode === "single" ? formattedDate : "selected period"}
+                      Total nutrition for selected period ({format(dateRange?.from || new Date(), "MMM dd")} - {format(dateRange?.to || new Date(), "MMM dd")})
                     </CardDescription>
                   </CardHeader>
                   <CardContent>

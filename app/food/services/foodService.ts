@@ -1,13 +1,22 @@
-import api from '@/lib/api-client';
+import axios from 'axios';
 import { Food, CreateFood, FoodNutrient, CreateFoodNutrient, Nutrient, FoodWithNutrition } from '../types';
 
-// Base API path (api-client already includes /api/v1 in baseURL)
-const API_PATH = '';
+// Helper function to get auth headers
+const getAuthHeaders = () => {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+  return {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    ...(token && { 'Authorization': `Bearer ${token}` })
+  };
+};
 
 // Food CRUD operations
 export const createFood = async (food: CreateFood): Promise<Food> => {
   try {
-    const response = await api.post('/foods/', food);
+    const response = await axios.post('/api/foods', food, {
+      headers: getAuthHeaders()
+    });
     return response.data.data;
   } catch (error: any) {
     if (error.response?.status === 400) {
@@ -18,9 +27,11 @@ export const createFood = async (food: CreateFood): Promise<Food> => {
 };
 
 export const getAllFoods = async (): Promise<Food[]> => {
-  console.log('[getAllFoods] Fetching from:', '/foods/');
+  console.log('[getAllFoods] Fetching from:', '/api/foods');
   try {
-    const response = await api.get<any>('/foods/'); // Specify <any> or a more specific type for response.data
+    const response = await axios.get<any>('/api/foods', {
+      headers: getAuthHeaders()
+    });
     console.log('[getAllFoods] Response status:', response.status);
     console.log('[getAllFoods] Raw response.data:', JSON.stringify(response.data, null, 2));
 
@@ -46,7 +57,9 @@ export const getAllFoods = async (): Promise<Food[]> => {
 
 export const getFoodById = async (id: number): Promise<Food> => {
   try {
-    const response = await api.get(`/foods/${id}/`);
+    const response = await axios.get(`/api/foods/${id}`, {
+      headers: getAuthHeaders()
+    });
     return response.data.data;
   } catch (error: any) {
     if (error.response?.status === 404) {
@@ -58,7 +71,9 @@ export const getFoodById = async (id: number): Promise<Food> => {
 
 export const updateFood = async (id: number, food: CreateFood): Promise<Food> => {
   try {
-    const response = await api.put(`/foods/${id}/`, food);
+    const response = await axios.put(`/api/foods/${id}`, food, {
+      headers: getAuthHeaders()
+    });
     return response.data.data;
   } catch (error: any) {
     if (error.response?.status === 404) {
@@ -70,7 +85,9 @@ export const updateFood = async (id: number, food: CreateFood): Promise<Food> =>
 
 export const deleteFood = async (id: number): Promise<void> => {
   try {
-    await api.delete(`/foods/${id}/`);
+    await axios.delete(`/api/foods/${id}`, {
+      headers: getAuthHeaders()
+    });
   } catch (error: any) {
     if (error.response?.status === 404) {
       throw new Error('Food not found');
@@ -82,7 +99,9 @@ export const deleteFood = async (id: number): Promise<void> => {
 // Food Nutrient operations
 export const getFoodNutrients = async (foodId: number): Promise<FoodNutrient[]> => {
   try {
-    const response = await api.get(`/food-nutrients/food/${foodId}/`);
+    const response = await axios.get(`/api/food-nutrients/food/${foodId}`, {
+      headers: getAuthHeaders()
+    });
     return response.data.data;
   } catch (error: any) {
     throw new Error(error.response?.data?.message || 'Failed to retrieve food nutrients');
@@ -91,7 +110,9 @@ export const getFoodNutrients = async (foodId: number): Promise<FoodNutrient[]> 
 
 export const createFoodNutrient = async (foodNutrient: CreateFoodNutrient): Promise<FoodNutrient> => {
   try {
-    const response = await api.post('/food-nutrients/', foodNutrient);
+    const response = await axios.post('/api/food-nutrients', foodNutrient, {
+      headers: getAuthHeaders()
+    });
     return response.data.data;
   } catch (error: any) {
     throw new Error(error.response?.data?.message || 'Failed to create food nutrient');
@@ -100,7 +121,9 @@ export const createFoodNutrient = async (foodNutrient: CreateFoodNutrient): Prom
 
 export const updateFoodNutrient = async (id: number, foodNutrient: CreateFoodNutrient): Promise<FoodNutrient> => {
   try {
-    const response = await api.put(`/food-nutrients/${id}/`, foodNutrient);
+    const response = await axios.put(`/api/food-nutrients/${id}`, foodNutrient, {
+      headers: getAuthHeaders()
+    });
     return response.data.data;
   } catch (error: any) {
     throw new Error(error.response?.data?.message || 'Failed to update food nutrient');
@@ -109,7 +132,9 @@ export const updateFoodNutrient = async (id: number, foodNutrient: CreateFoodNut
 
 export const deleteFoodNutrient = async (id: number): Promise<void> => {
   try {
-    await api.delete(`/food-nutrients/${id}/`);
+    await axios.delete(`/api/food-nutrients/${id}`, {
+      headers: getAuthHeaders()
+    });
   } catch (error: any) {
     throw new Error(error.response?.data?.message || 'Failed to delete food nutrient');
   }
@@ -118,7 +143,9 @@ export const deleteFoodNutrient = async (id: number): Promise<void> => {
 // Nutrient operations
 export const getAllNutrients = async (): Promise<Nutrient[]> => {
   try {
-    const response = await api.get('/nutrients/');
+    const response = await axios.get('/api/nutrients', {
+      headers: getAuthHeaders()
+    });
     return response.data.data;
   } catch (error: any) {
     throw new Error(error.response?.data?.message || 'Failed to retrieve nutrients');
@@ -127,7 +154,9 @@ export const getAllNutrients = async (): Promise<Nutrient[]> => {
 
 export const getNutrientsByCategory = async (category: string): Promise<Nutrient[]> => {
   try {
-    const response = await api.get(`/nutrients/category/${category}/`);
+    const response = await axios.get(`/api/nutrients/category/${category}`, {
+      headers: getAuthHeaders()
+    });
     return response.data.data;
   } catch (error: any) {
     throw new Error(error.response?.data?.message || 'Failed to retrieve nutrients by category');

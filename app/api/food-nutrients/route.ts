@@ -17,27 +17,24 @@ function getAuthFromRequest(request: Request) {
 }
 
 /**
- * Get food nutrients by food ID
- * GET /api/food-nutrients/food/[foodId]
+ * Create a new food nutrient
+ * POST /api/food-nutrients
  */
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ foodId: string }> }
-) {
+export async function POST(request: Request) {
   try {
-    const { foodId } = await params;
-    console.log('Get food nutrients API route called, Food ID:', foodId);
+    console.log('Create food nutrient API route called');
+    const body = await request.json();
     
     const headers = getAuthFromRequest(request);
-    const response = await axios.get(`${API_URL}/food-nutrients/food/${foodId}/`, {
+    const response = await axios.post(`${API_URL}/food-nutrients/`, body, {
       headers,
     });
     
-    console.log('Get food nutrients response status:', response.status);
+    console.log('Create food nutrient response status:', response.status);
     
     return NextResponse.json(response.data, { status: response.status });
   } catch (error: any) {
-    console.error('Get food nutrients API error:', error);
+    console.error('Create food nutrient API error:', error);
     
     if (error.response) {
       return NextResponse.json(

@@ -1,20 +1,53 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/auth-context'
-import { MealLog, CreateMealLog } from '../types'
-import api from '@/lib/api-client'
+import { MealLog, CreateMealLog, MealNutritionCalculation, AddItemsToMealLogRequest, MealLogItemResponse } from '../types'
+import axios from 'axios'
 import { getErrorMessage } from '@/lib/utils'
 
 export const useMealLogs = () => {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, user } = useAuth()
   const [mealLogs, setMealLogs] = useState<MealLog[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null)
+
+  // Helper function to get auth headers
+  const getAuthHeaders = () => {
+    // Get the access token UUID from localStorage
+    const tokenId = localStorage.getItem('accessToken')
+    
+    return {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      // The backend expects the UUID token ID in the Authorization header
+      // Format: Bearer {token_id}
+      ...(tokenId && { 'Authorization': `Bearer ${tokenId}` })
+    }
+  }
+
+  // Clear all data when user changes
+  const clearData = () => {
+    setMealLogs([])
+    setError(null)
+    setLoading(true)
+  }
+
+  // Detect user changes and clear data
+  useEffect(() => {
+    if (user?.id !== currentUserId) {
+      console.log('useMealLogs: User changed from', currentUserId, 'to', user?.id, '- clearing data')
+      clearData()
+      setCurrentUserId(user?.id || null)
+    }
+  }, [user?.id, currentUserId])
 
   // Get all meal logs for the authenticated user
   const fetchMealLogs = async () => {
     try {
       setLoading(true)
-      const response = await api.get('/meal-logs/user')
+      const response = await axios.get('/api/meal-logs', {
+        headers: getAuthHeaders()
+      })
       setMealLogs(response.data)
       setError(null)
     } catch (err) {
@@ -29,7 +62,9 @@ export const useMealLogs = () => {
   const fetchMealLogsByDate = async (date: string) => {
     try {
       setLoading(true)
-      const response = await api.get(`/meal-logs/user/date/${date}`)
+      const response = await axios.get(`/api/meal-logs/user/date/${date}`, {
+        headers: getAuthHeaders()
+      })
       setMealLogs(response.data)
       setError(null)
     } catch (err) {
@@ -44,8 +79,8 @@ export const useMealLogs = () => {
   const fetchMealLogsByDateRange = async (startDate: string, endDate: string) => {
     try {
       setLoading(true)
-      const response = await api.get('/meal-logs/user/date-range', {
-        params: { startDate, endDate }
+      const response = await axios.get(`/api/meal-logs?startDate=${startDate}&endDate=${endDate}`, {
+        headers: getAuthHeaders()
       })
       setMealLogs(response.data)
       setError(null)
@@ -60,7 +95,9 @@ export const useMealLogs = () => {
   // Get a specific meal log by ID
   const fetchMealLogById = async (id: number): Promise<MealLog | null> => {
     try {
-      const response = await api.get(`/meal-logs/${id}`)
+      const response = await axios.get(`/api/meal-logs/${id}`, {
+        headers: getAuthHeaders()
+      })
       return response.data
     } catch (err) {
       console.error('Error fetching meal log by ID:', err)
@@ -72,7 +109,9 @@ export const useMealLogs = () => {
   const addMealLog = async (data: CreateMealLog): Promise<MealLog> => {
     try {
       setLoading(true)
-      const response = await api.post('/meal-logs', data)
+      const response = await axios.post('/api/meal-logs', data, {
+        headers: getAuthHeaders()
+      })
       
       // The API returns { meal_log: {...}, items: [...] }
       // We need to combine them into a single MealLog object
@@ -98,7 +137,9 @@ export const useMealLogs = () => {
   const updateMealLog = async (id: number, data: CreateMealLog): Promise<MealLog> => {
     try {
       setLoading(true)
-      const response = await api.put(`/meal-logs/${id}`, data)
+      const response = await axios.put(`/api/meal-logs/${id}`, data, {
+        headers: getAuthHeaders()
+      })
       
       // Update the meal log in the local state
       setMealLogs(prev =>
@@ -120,7 +161,9 @@ export const useMealLogs = () => {
   const deleteMealLog = async (id: number): Promise<void> => {
     try {
       setLoading(true)
-      await api.delete(`/meal-logs/${id}`)
+      await axios.delete(`/api/meal-logs/${id}`, {
+        headers: getAuthHeaders()
+      })
       
       // Remove the meal log from the local state
       setMealLogs(prev => prev.filter(log => log.id !== id))
@@ -135,9 +178,44 @@ export const useMealLogs = () => {
     }
   }
 
+  // Get nutrition calculation for a specific meal
+  const fetchMealNutrition = async (mealLogId: number): Promise<MealNutritionCalculation> => {
+    try {
+      const response = await axios.get(`/api/nutrition/meal/${mealLogId}`, {
+        headers: getAuthHeaders()
+      })
+      return response.data
+    } catch (err) {
+      console.error('Error fetching meal nutrition:', err)
+      throw err
+    }
+  }
+
+  // Add items to an existing meal log
+  const addItemsToMealLog = async (mealLogId: number, data: AddItemsToMealLogRequest): Promise<MealLogItemResponse[]> => {
+    try {
+      const response = await axios.post(`/api/meal-logs/${mealLogId}/items`, data, {
+        headers: getAuthHeaders()
+      })
+      return response.data
+    } catch (err) {
+      console.error('Error adding items to meal log:', err)
+      throw err
+    }
+  }
+
   // Helper function to format date for API calls (YYYY-MM-DD)
+  // This ensures consistent date formatting regardless of timezone
   const formatDateForAPI = (date: Date): string => {
-    return date.toISOString().split('T')[0]
+    // Use UTC date components to avoid timezone issues
+    const year = date.getUTCFullYear();
+    // Add 1 to month because getUTCMonth() returns 0-11
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    
+    const formattedDate = `${year}-${month}-${day}`;
+    console.log(`Formatting date for meal logs: ${date.toISOString()} → ${formattedDate}`);
+    return formattedDate;
   }
 
   // Load meal logs when component mounts or authentication changes
@@ -151,18 +229,18 @@ export const useMealLogs = () => {
     mealLogs,
     loading,
     error,
-    // Core CRUD operations
+    addMealLog,
+    updateMealLog,
+    deleteMealLog,
     fetchMealLogs,
     fetchMealLogsByDate,
     fetchMealLogsByDateRange,
     fetchMealLogById,
-    addMealLog,
-    updateMealLog,
-    deleteMealLog,
-    // Helper functions
+    fetchMealNutrition,
+    addItemsToMealLog,
     formatDateForAPI,
-    // Utility functions
     clearError: () => setError(null),
+    clearData,
     refreshMealLogs: fetchMealLogs
   }
 } 

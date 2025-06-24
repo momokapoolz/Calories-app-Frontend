@@ -34,10 +34,19 @@ if (isClient && axiosInstance) {
   // Request interceptor - add auth token if available
   axiosInstance.interceptors.request.use(
     (config) => {
-      const token = localStorage.getItem('accessToken');
-      // Only add Authorization header if token exists and is not empty
-      if (token && token.trim() !== '' && config.headers) {
-        config.headers.Authorization = `Bearer ${token}`;
+      // Get the access token UUID from localStorage
+      const tokenId = localStorage.getItem('accessToken');
+      
+      // Only add Authorization header if token ID exists and is not empty
+      if (tokenId && tokenId.trim() !== '' && config.headers) {
+        // The backend expects the UUID token ID in the Authorization header
+        // Format: Bearer {token_id}
+        config.headers.Authorization = `Bearer ${tokenId}`;
+        
+        // Add a debug header to track token usage (remove in production)
+        if (process.env.NODE_ENV === 'development') {
+          config.headers['X-Debug-Token-Type'] = 'UUID';
+        }
       }
       return config;
     },

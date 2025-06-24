@@ -67,4 +67,93 @@ export interface Food {
   fat_per_100g: number
   brand?: string
   category?: string
+}
+
+// Nutrition calculation types to match API response
+export interface MacroNutrientBreakDown {
+  energy: number
+  protein: number
+  total_lipid_fe: number
+  carbohydrate: number
+  fiber: number
+  cholesteroid: number
+  vitamin_a: number
+  vitamin_b: number
+  calcium: number
+  iron: number
+}
+
+export interface MicroNutrientBreakDown {
+  nutrient_id: number
+  nutrient_name: string
+  amount: number
+  unit: string
+}
+
+export interface MealNutritionCalculation {
+  meal_log_id: number
+  user_id: number
+  meal_type: string
+  date: string
+  total_calories: number
+  food_count: number
+  MacroNutrientBreakDown: MacroNutrientBreakDown[]
+  MicroNutrientBreakDown: MicroNutrientBreakDown[]
+}
+
+// Meal Log Item specific types for individual item management
+export interface CreateMealLogItemRequest {
+  meal_log_id: number
+  food_id: number
+  quantity: number
+  quantity_grams: number
+}
+
+export interface UpdateMealLogItemRequest {
+  meal_log_id?: number
+  food_id?: number
+  quantity?: number
+  quantity_grams?: number
+}
+
+export interface MealLogItemResponse {
+  id: number
+  meal_log_id: number
+  food_id: number
+  quantity: number
+  quantity_grams: number
+  created_at?: string
+  updated_at?: string
+}
+
+// For adding items to existing meal log
+export interface AddItemsToMealLogRequest {
+  items: CreateMealLogItem[]
+}
+
+// Success message responses
+export interface SuccessMessage {
+  message: string
+}
+
+// Meal breakdown for daily nutrition
+export interface MealBreakdown {
+  meal_log_id: number
+  meal_type: string
+  date: string
+  calories: number
+  protein: number
+  carbohydrate: number
+  fat: number
+  food_count: number
+}
+
+// Daily Nutrition Summary types (updated to match actual API response)
+export interface DailyNutritionSummary {
+  user_id: number
+  date_range: string // YYYY-MM-DD format for single date
+  total_calories: number
+  MacroNutrientBreakDown: MacroNutrientBreakDown[]
+  MicroNutrientBreakDown: MicroNutrientBreakDown[]
+  MealBreakdown: MealBreakdown[]
 } 

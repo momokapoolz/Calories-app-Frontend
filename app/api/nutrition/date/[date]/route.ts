@@ -25,6 +25,7 @@ function getAuthFromRequest(request: Request) {
     }
   }
   
+  // Forward the same Authorization header to the backend
   return {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
@@ -33,8 +34,8 @@ function getAuthFromRequest(request: Request) {
 }
 
 /**
- * Get meal logs by user and date
- * GET /api/meal-logs/user/date/[date]
+ * Get nutrition summary for a specific date
+ * GET /api/nutrition/date/[date]
  */
 export async function GET(
   request: Request,
@@ -42,7 +43,37 @@ export async function GET(
 ) {
   try {
     const { date } = await params;
-    console.log('Get meal logs by date API route called, Date:', date);
+    console.log('Get nutrition by date API route called, Date:', date);
+    
+    // Validate date format (YYYY-MM-DD)
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(date)) {
+      return NextResponse.json(
+        { error: 'Invalid date format. Use YYYY-MM-DD' },
+        { status: 400 }
+      );
+    }
+    
+    // Parse the date to ensure it's valid
+    try {
+      // Create date object in UTC to avoid timezone issues
+      const [year, month, day] = date.split('-').map(Number);
+      const dateObj = new Date(Date.UTC(year, month - 1, day));
+      
+      // Check if the date is valid by comparing components
+      const isValidDate = 
+        dateObj.getUTCFullYear() === year && 
+        dateObj.getUTCMonth() === month - 1 && 
+        dateObj.getUTCDate() === day;
+      
+      if (!isValidDate) {
+        console.warn(`Invalid date components: ${date} → year: ${year}, month: ${month}, day: ${day}`);
+      } else {
+        console.log(`Valid date: ${date} → ${dateObj.toISOString()}`);
+      }
+    } catch (err) {
+      console.warn(`Error parsing date: ${date}`, err);
+    }
     
     const headers = getAuthFromRequest(request);
     console.log('Making request to backend with headers:', {
@@ -50,39 +81,45 @@ export async function GET(
       'Authorization': headers.Authorization ? 'Bearer token ID present' : 'No authorization'
     });
     
-    // Add timestamp to prevent caching issues
+    // Get query parameters
     const url = new URL(request.url);
-    const timestamp = url.searchParams.get('_t') || new Date().getTime();
+    const timestamp = url.searchParams.get('_t');
     
     // Forward the request to the backend API
-    const apiUrl = `${API_URL}/meal-logs/user/date/${date}`;
-    console.log(`Forwarding request to: ${apiUrl}`);
+    const apiUrl = `${API_URL}/nutrition/date/${date}`;
+    console.log(`Forwarding request to: ${apiUrl}${timestamp ? ' with timestamp' : ''}`);
+    console.log(`Date parameter details: 
+      - Original date: ${date}
+      - Year: ${date.substring(0, 4)}
+      - Month: ${date.substring(5, 7)}
+      - Day: ${date.substring(8, 10)}
+      - Current server time: ${new Date().toISOString()}
+    `);
     
     const response = await axios.get(apiUrl, {
       headers,
-      params: {
-        _t: timestamp // Add timestamp to prevent caching
-      }
     });
     
-    console.log('Get meal logs by date response status:', response.status);
-    console.log('Get meal logs by date response data:', {
-      dataLength: Array.isArray(response.data) ? response.data.length : 'Not an array',
-      firstItem: Array.isArray(response.data) && response.data.length > 0 ? 
-        { id: response.data[0].id, meal_type: response.data[0].meal_type } : 'No items'
+    console.log('Get nutrition by date response status:', response.status);
+    console.log('Get nutrition by date response data summary:', {
+      userId: response.data?.user_id,
+      dateRange: response.data?.date_range,
+      totalCalories: response.data?.total_calories,
+      mealCount: response.data?.MealBreakdown?.length || 0
     });
     
     // Create the response with the data
     const nextResponse = NextResponse.json(response.data, { status: response.status });
     
     // Add cache control headers to prevent browser caching
+    // This ensures that different users always get their own data
     nextResponse.headers.set('Cache-Control', 'no-store, max-age=0, must-revalidate');
     nextResponse.headers.set('Pragma', 'no-cache');
     nextResponse.headers.set('Expires', '0');
     
     return nextResponse;
   } catch (error: any) {
-    console.error('Get meal logs by date API error:', error);
+    console.error('Get nutrition by date API error:', error);
     
     if (error.response) {
       // Log more details about the error
@@ -94,13 +131,13 @@ export async function GET(
       });
       
       return NextResponse.json(
-        error.response.data || { message: 'API server error' },
+        error.response.data || { error: 'API server error' },
         { status: error.response.status }
       );
     }
     
     return NextResponse.json(
-      { message: 'API server error', error: error.message },
+      { error: 'Internal server error', message: error.message },
       { status: 500 }
     );
   }
