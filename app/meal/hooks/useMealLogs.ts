@@ -205,16 +205,16 @@ export const useMealLogs = () => {
   }
 
   // Helper function to format date for API calls (YYYY-MM-DD)
-  // This ensures consistent date formatting regardless of timezone
+  // This ensures consistent date formatting using local date components
   const formatDateForAPI = (date: Date): string => {
-    // Use UTC date components to avoid timezone issues
-    const year = date.getUTCFullYear();
-    // Add 1 to month because getUTCMonth() returns 0-11
-    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-    const day = String(date.getUTCDate()).padStart(2, '0');
+    // Use local date components to preserve the user's intended calendar date
+    const year = date.getFullYear();
+    // Add 1 to month because getMonth() returns 0-11
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
     
     const formattedDate = `${year}-${month}-${day}`;
-    console.log(`Formatting date for meal logs: ${date.toISOString()} → ${formattedDate}`);
+    console.log(`Formatting date for meal logs: ${date.toISOString()} → ${formattedDate} (local: ${date.toLocaleDateString()})`);
     return formattedDate;
   }
 

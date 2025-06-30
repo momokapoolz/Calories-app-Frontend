@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { 
   Food, 
   CreateFood, 
@@ -28,14 +28,14 @@ export const useFood = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch all foods with nutrition data
-  const fetchFoods = async () => {
+  // Fetch all foods with nutrition data - memoized to prevent infinite re-renders
+  const fetchFoods = useCallback(async (lazyLoad = true) => {
     try {
       setLoading(true);
       setError(null);
-      console.log('[useFood] Fetching foods...');
-      const data = await getFoodsWithNutrition();
-      console.log('[useFood] Data received from getFoodsWithNutrition:', data);
+      console.log('[useFood] Fetching foods with lazy loading:', lazyLoad);
+      const data = await getFoodsWithNutrition(undefined, lazyLoad);
+      console.log('[useFood] Data received from getFoodsWithNutrition:', data.length, 'foods');
       setFoods(data);
     } catch (err: any) {
       console.error('[useFood] Error fetching foods:', err.message);
@@ -43,20 +43,20 @@ export const useFood = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  // Fetch all nutrients
-  const fetchNutrients = async () => {
+  // Fetch all nutrients - memoized to prevent infinite re-renders
+  const fetchNutrients = useCallback(async () => {
     try {
       const data = await getAllNutrients();
       setNutrients(data);
     } catch (err: any) {
       console.error('Failed to fetch nutrients:', err.message);
     }
-  };
+  }, []);
 
-  // Add new food
-  const addFood = async (foodData: CreateFood) => {
+  // Add new food - memoized
+  const addFood = useCallback(async (foodData: CreateFood) => {
     try {
       setLoading(true);
       setError(null);
@@ -80,10 +80,10 @@ export const useFood = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  // Get single food with nutrition
-  const getFood = async (id: number): Promise<FoodWithNutrition> => {
+  // Get single food with nutrition - memoized
+  const getFood = useCallback(async (id: number): Promise<FoodWithNutrition> => {
     try {
       setLoading(true);
       setError(null);
@@ -94,10 +94,10 @@ export const useFood = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  // Update food
-  const editFood = async (id: number, foodData: CreateFood) => {
+  // Update food - memoized
+  const editFood = useCallback(async (id: number, foodData: CreateFood) => {
     try {
       setLoading(true);
       setError(null);
@@ -116,10 +116,10 @@ export const useFood = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  // Delete food
-  const removeFood = async (id: number) => {
+  // Delete food - memoized
+  const removeFood = useCallback(async (id: number) => {
     try {
       setLoading(true);
       setError(null);
@@ -131,10 +131,10 @@ export const useFood = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  // Add nutrition data to a food
-  const addFoodNutrient = async (foodId: number, nutrientData: CreateFoodNutrient) => {
+  // Add nutrition data to a food - memoized
+  const addFoodNutrient = useCallback(async (foodId: number, nutrientData: CreateFoodNutrient) => {
     try {
       setLoading(true);
       setError(null);
@@ -153,10 +153,10 @@ export const useFood = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  // Update nutrition data for a food
-  const editFoodNutrient = async (foodId: number, nutrientId: number, nutrientData: CreateFoodNutrient) => {
+  // Update nutrition data for a food - memoized
+  const editFoodNutrient = useCallback(async (foodId: number, nutrientId: number, nutrientData: CreateFoodNutrient) => {
     try {
       setLoading(true);
       setError(null);
@@ -175,10 +175,10 @@ export const useFood = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  // Remove nutrition data from a food
-  const removeFoodNutrient = async (foodId: number, nutrientId: number) => {
+  // Remove nutrition data from a food - memoized
+  const removeFoodNutrient = useCallback(async (foodId: number, nutrientId: number) => {
     try {
       setLoading(true);
       setError(null);
@@ -195,13 +195,30 @@ export const useFood = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  // Load foods and nutrients on component mount
-  useEffect(() => {
-    fetchFoods();
-    fetchNutrients();
   }, []);
+
+  // Load full nutrition data for all foods - memoized
+  const loadFullNutrition = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      console.log('[useFood] Loading full nutrition data...');
+      const data = await getFoodsWithNutrition(undefined, false); // lazyLoad = false
+      console.log('[useFood] Full nutrition data loaded for', data.length, 'foods');
+      setFoods(data);
+    } catch (err: any) {
+      console.error('[useFood] Error loading full nutrition:', err.message);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Load foods and nutrients on component mount (with lazy loading for better performance)
+  useEffect(() => {
+    fetchFoods(true); // Use lazy loading by default
+    fetchNutrients();
+  }, [fetchFoods, fetchNutrients]);
 
   return {
     foods,
@@ -210,6 +227,7 @@ export const useFood = () => {
     error,
     fetchFoods,
     fetchNutrients,
+    loadFullNutrition,
     addFood,
     getFood,
     editFood,

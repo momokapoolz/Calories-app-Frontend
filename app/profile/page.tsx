@@ -31,11 +31,23 @@ export default function ProfilePage() {
     const fetchProfile = async () => {
       try {
         setLoading(true)
-        const response = await api.get('/profile')
+        // Use the frontend API route that proxies to the backend
+        const response = await fetch('/api/profile', {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+            'Accept': 'application/json'
+          }
+        })
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch profile: ${response.status} ${response.statusText}`)
+        }
+        
+        const data = await response.json()
         
         // The API returns data in { status: "success", data: { user: {...} } } format
-        if (response.data?.status === 'success' && response.data?.data?.user) {
-          setProfile(response.data.data.user)
+        if (data?.status === 'success' && data?.data?.user) {
+          setProfile(data.data.user)
         } else {
           setError('Invalid profile data received')
         }

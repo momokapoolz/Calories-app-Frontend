@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { mealLogId: string } }
+  { params }: { params: Promise<{ mealLogId: string }> }
 ) {
   try {
-    const { mealLogId } = params
+    const { mealLogId } = await params
     
     // Get the authorization header from the incoming request
     const authHeader = request.headers.get('authorization')
@@ -58,10 +58,10 @@ export async function GET(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { mealLogId: string } }
+  { params }: { params: Promise<{ mealLogId: string }> }
 ) {
   try {
-    const { mealLogId } = params
+    const { mealLogId } = await params
     
     // Get the authorization header from the incoming request
     const authHeader = request.headers.get('authorization')

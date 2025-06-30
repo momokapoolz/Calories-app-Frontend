@@ -56,11 +56,22 @@ export default function LoginPage() {
       console.log('API_URL:', API_URL);
       console.log('Login data:', data);
       
-      // Use the api-client which handles CORS and other configurations
-      const loginResponse = await api.post('/login', data);
+      // Use the frontend API route that proxies to the backend
+      const loginResponse = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(data)
+      });
 
-      const responseData = loginResponse.data;
-      console.log('Login response:', responseData);// If login successful, we should have user data and tokens
+      if (!loginResponse.ok) {
+        throw new Error(`Login failed: ${loginResponse.status} ${loginResponse.statusText}`);
+      }
+
+      const responseData = await loginResponse.json();
+      console.log('Login response:', responseData);
       if (responseData.status === "success" && responseData.data?.user) {
         console.log('=== LOGIN SUCCESS ===')
         console.log('User data:', responseData.data.user)
@@ -87,36 +98,30 @@ export default function LoginPage() {
           console.log('Stored tokens match:', accessToken === storedAccessToken);          // Test the token immediately after login
           console.log('Testing token immediately after login...')
           try {
-            console.log('Making test call to /profile with stored token...')
+            console.log('Making test call to /api/profile with stored token...')
             console.log('Token being used for test:', storedAccessToken?.substring(0, 20) + '...')
             
-            const testResponse = await api.get('/profile');
-            console.log('Immediate token test SUCCESS:', testResponse.data);
+            // Use the frontend API route that proxies to the backend
+            const testResponse = await fetch('/api/profile', {
+              headers: {
+                'Authorization': `Bearer ${storedAccessToken}`,
+                'Accept': 'application/json'
+              }
+            });
+            
+            if (testResponse.ok) {
+              const profileData = await testResponse.json();
+              console.log('Immediate token test SUCCESS:', profileData);
+            } else {
+              throw new Error(`Profile test failed: ${testResponse.status} ${testResponse.statusText}`);
+            }
           } catch (testError: any) {
             console.error('Immediate token test FAILED - Full error object:', testError);
             console.error('Error message:', testError?.message || 'No message');
             console.error('Error name:', testError?.name || 'No name');
-            console.error('Error code:', testError?.code || 'No code');
-            console.error('Response status:', testError?.response?.status || 'No status');
-            console.error('Response data:', testError?.response?.data || 'No response data');
-            console.error('Request URL:', testError?.config?.url || 'No URL');
-            console.error('Request headers:', testError?.config?.headers || 'No headers');            // Also try a direct axios call to compare
-            console.log('Trying direct axios call for comparison...')
-            try {
-              const directResponse = await axios.get(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1'}/profile`, {
-                headers: {
-                  'Authorization': `Bearer ${storedAccessToken}`,
-                  'Accept': 'application/json'
-                }
-              });
-              console.log('Direct axios call SUCCESS:', directResponse.data);
-            } catch (directError: any) {
-              console.error('Direct axios call also FAILED:', {
-                message: directError?.message,
-                status: directError?.response?.status,
-                data: directError?.response?.data
-              });
-            }
+            
+            // Note: Using frontend API route (/api/profile) instead of direct backend call
+            // This prevents CORS and network issues
           }
           
           console.log('=== TOKEN STORAGE DEBUG END ===')

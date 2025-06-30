@@ -1,43 +1,166 @@
-import { useState, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import { MealNutritionCalculation } from '../types'
+import { mealLogService } from '../services/mealLogService'
 
-// Create an instance of the meal log service
-class MealLogService {
-  private baseUrl = '/api/meal-logs'
+export interface MealNutritionSummary {
+  mealLogId: number
+  protein: number
+  carbs: number
+  fat: number
+  calories: number
+  loading: boolean
+  error: string | null
+}
 
-  private getAuthHeaders() {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
-    return {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      ...(token && { 'Authorization': `Bearer ${token}` })
-    };
-  }
+/**
+ * Hook to fetch nutrition data for a specific meal
+ */
+export function useMealNutrition(mealLogId: number) {
+  const [nutrition, setNutrition] = useState<MealNutritionCalculation | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  async getMealNutritionCalculation(mealLogId: number): Promise<MealNutritionCalculation> {
-    try {
-      const response = await fetch(`/api/nutrition/meal/${mealLogId}`, {
-        method: 'GET',
-        headers: this.getAuthHeaders(),
-      })
+  useEffect(() => {
+    if (!mealLogId) return
 
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
+    const fetchNutrition = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        const nutritionData = await mealLogService.getMealNutritionCalculation(mealLogId)
+        setNutrition(nutritionData)
+      } catch (err) {
+        console.error('Error fetching meal nutrition:', err)
+        setError(err instanceof Error ? err.message : 'Failed to fetch nutrition data')
+      } finally {
+        setLoading(false)
       }
+    }
 
-      return await response.json()
-    } catch (error) {
-      console.error('Error fetching meal nutrition calculation:', error)
-      throw error
+    fetchNutrition()
+  }, [mealLogId])
+
+  // Extract macro nutrients from the API response
+  const macros = nutrition?.MacroNutrientBreakDown?.[0]
+  
+  return {
+    nutrition,
+    loading,
+    error,
+    // Simplified nutrition summary for easy use in components
+    summary: {
+      mealLogId,
+      protein: macros?.protein || 0,
+      carbs: macros?.carbohydrate || 0,
+      fat: macros?.total_lipid_fe || 0,
+      calories: nutrition?.total_calories || 0,
+      loading,
+      error
+    } as MealNutritionSummary
+  }
+}
+
+/**
+ * Hook to fetch nutrition data for multiple meals
+ */
+export function useMultipleMealNutrition(mealLogIds: number[]) {
+  const [nutritionMap, setNutritionMap] = useState<Map<number, MealNutritionSummary>>(new Map())
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // Create a stable string representation of the IDs to prevent unnecessary re-renders
+  const mealLogIdsString = useMemo(() => {
+    const sortedIds = [...mealLogIds].sort((a, b) => a - b)
+    return sortedIds.join(',')
+  }, [mealLogIds])
+
+  useEffect(() => {
+    if (!mealLogIds.length) {
+      // If no meal IDs, clear the map and return
+      if (nutritionMap.size > 0) {
+        setNutritionMap(new Map())
+      }
+      return
+    }
+
+    const fetchAllNutrition = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        
+        // Fetch nutrition data for all meals in parallel
+        const nutritionPromises = mealLogIds.map(async (mealLogId) => {
+          try {
+            const nutritionData = await mealLogService.getMealNutritionCalculation(mealLogId)
+            const macros = nutritionData?.MacroNutrientBreakDown?.[0]
+            
+            return {
+              mealLogId,
+              protein: macros?.protein || 0,
+              carbs: macros?.carbohydrate || 0,
+              fat: macros?.total_lipid_fe || 0,
+              calories: nutritionData?.total_calories || 0,
+              loading: false,
+              error: null
+            } as MealNutritionSummary
+          } catch (err) {
+            console.error(`Error fetching nutrition for meal ${mealLogId}:`, err)
+            return {
+              mealLogId,
+              protein: 0,
+              carbs: 0,
+              fat: 0,
+              calories: 0,
+              loading: false,
+              error: err instanceof Error ? err.message : 'Failed to fetch nutrition data'
+            } as MealNutritionSummary
+          }
+        })
+
+        const nutritionResults = await Promise.all(nutritionPromises)
+        
+        // Create a map for easy lookup
+        const newNutritionMap = new Map<number, MealNutritionSummary>()
+        nutritionResults.forEach(result => {
+          newNutritionMap.set(result.mealLogId, result)
+        })
+        
+        setNutritionMap(newNutritionMap)
+      } catch (err) {
+        console.error('Error fetching multiple meal nutrition:', err)
+        setError(err instanceof Error ? err.message : 'Failed to fetch nutrition data')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchAllNutrition()
+  }, [mealLogIdsString, mealLogIds])
+
+  return {
+    nutritionMap,
+    loading,
+    error,
+    // Helper function to get nutrition for a specific meal
+    getNutritionForMeal: (mealLogId: number): MealNutritionSummary => {
+      return nutritionMap.get(mealLogId) || {
+        mealLogId,
+        protein: 0,
+        carbs: 0,
+        fat: 0,
+        calories: 0,
+        loading: false,
+        error: null
+      }
     }
   }
 }
 
-const mealLogService = new MealLogService()
-
-export const useMealNutrition = () => {
+/**
+ * Legacy hook for backwards compatibility - provides more detailed meal nutrition functionality
+ */
+export const useMealNutritionData = () => {
   const { isAuthenticated } = useAuth()
   const [nutritionData, setNutritionData] = useState<MealNutritionCalculation | null>(null)
   const [loading, setLoading] = useState(false)
@@ -111,9 +234,6 @@ export const useMealNutrition = () => {
     
     // Helpers
     getTotalMacros,
-    getMicronutrient,
-    
-    // Computed values
-    isAuthenticated
+    getMicronutrient
   }
 } 

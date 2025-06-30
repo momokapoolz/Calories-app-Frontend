@@ -102,9 +102,13 @@ export const getFoodNutrients = async (foodId: number): Promise<FoodNutrient[]> 
     const response = await axios.get(`/api/food-nutrients/food/${foodId}`, {
       headers: getAuthHeaders()
     });
-    return response.data.data;
+    const data = response.data.data;
+    // Ensure we always return an array
+    return Array.isArray(data) ? data : [];
   } catch (error: any) {
-    throw new Error(error.response?.data?.message || 'Failed to retrieve food nutrients');
+    console.warn(`Failed to retrieve nutrients for food ID ${foodId}:`, error.response?.data?.message || error.message);
+    // Return empty array instead of throwing to prevent breaking the parent function
+    return [];
   }
 };
 
@@ -171,11 +175,14 @@ export const getFoodWithNutrition = async (foodId: number): Promise<FoodWithNutr
       getFoodNutrients(foodId)
     ]);
 
-    // Calculate basic nutrition values from nutrients
-    const calories = nutrients.find(n => n.nutrient?.name === 'Calories')?.amount_per_100g || 0;
-    const protein = nutrients.find(n => n.nutrient?.name === 'Protein')?.amount_per_100g || 0;
-    const carbs = nutrients.find(n => n.nutrient?.name === 'Carbohydrates')?.amount_per_100g || 0;
-    const fat = nutrients.find(n => n.nutrient?.name === 'Fat')?.amount_per_100g || 0;
+    // Ensure nutrients is an array before calling .find()
+    const nutrientsArray = Array.isArray(nutrients) ? nutrients : [];
+    
+    // Calculate basic nutrition values from nutrients with additional null checks
+    const calories = nutrientsArray.find(n => n?.nutrient?.name === 'Calories')?.amount_per_100g || 0;
+    const protein = nutrientsArray.find(n => n?.nutrient?.name === 'Protein')?.amount_per_100g || 0;
+    const carbs = nutrientsArray.find(n => n?.nutrient?.name === 'Carbohydrates')?.amount_per_100g || 0;
+    const fat = nutrientsArray.find(n => n?.nutrient?.name === 'Fat')?.amount_per_100g || 0;
 
     return {
       ...food,
@@ -183,7 +190,7 @@ export const getFoodWithNutrition = async (foodId: number): Promise<FoodWithNutr
       protein,
       carbs,
       fat,
-      nutrients
+      nutrients: nutrientsArray
     };
   } catch (error) {
     throw new Error('Failed to retrieve food with nutrition data');
@@ -191,11 +198,11 @@ export const getFoodWithNutrition = async (foodId: number): Promise<FoodWithNutr
 };
 
 // Helper function to get multiple foods with nutrition data
-export const getFoodsWithNutrition = async (foodIds?: number[]): Promise<FoodWithNutrition[]> => {
+export const getFoodsWithNutrition = async (foodIds?: number[], lazyLoadNutrition = false): Promise<FoodWithNutrition[]> => {
   console.log('[getFoodsWithNutrition] Starting...');
   try {
     const foods = await getAllFoods();
-    console.log('[getFoodsWithNutrition] Foods from getAllFoods:', JSON.stringify(foods, null, 2));
+    console.log('[getFoodsWithNutrition] Foods from getAllFoods:', foods.length, 'foods');
 
     if (!Array.isArray(foods)) {
       console.error('[getFoodsWithNutrition] getAllFoods did not return an array. Data:', foods);
@@ -203,17 +210,36 @@ export const getFoodsWithNutrition = async (foodIds?: number[]): Promise<FoodWit
     }
 
     const targetFoods = foodIds ? foods.filter(f => foodIds.includes(f.id!)) : foods;
-    console.log('[getFoodsWithNutrition] Target foods to process:', JSON.stringify(targetFoods, null, 2));
+    console.log('[getFoodsWithNutrition] Target foods to process:', targetFoods.length, 'foods');
     
-    const foodsWithNutrition = await Promise.all(
-      targetFoods.map(async (food) => {
-        console.log(`[getFoodsWithNutrition] Processing food ID: ${food?.id}`);
+    // If lazy loading is enabled, return foods without nutrition data initially
+    if (lazyLoadNutrition) {
+      console.log('[getFoodsWithNutrition] Lazy loading enabled - returning foods without nutrition data');
+      return targetFoods.map(food => ({
+        ...food,
+        calories: 0,
+        protein: 0,
+        carbs: 0,
+        fat: 0,
+        nutrients: []
+      }));
+    }
+    
+    // Batch process foods in smaller chunks to avoid overwhelming the API
+    const BATCH_SIZE = 10; // Process 10 foods at a time
+    const allFoodsWithNutrition: FoodWithNutrition[] = [];
+    
+    for (let i = 0; i < targetFoods.length; i += BATCH_SIZE) {
+      const batch = targetFoods.slice(i, i + BATCH_SIZE);
+      console.log(`[getFoodsWithNutrition] Processing batch ${Math.floor(i/BATCH_SIZE) + 1} of ${Math.ceil(targetFoods.length/BATCH_SIZE)} (${batch.length} foods)`);
+      
+      const batchResults = await Promise.all(
+        batch.map(async (food) => {
         if (typeof food?.id === 'undefined') {
           console.error('[getFoodsWithNutrition] Encountered food item with undefined ID:', food);
-          // Skip this item or handle as an error, returning a default structure
           return {
             ...(food || {}),
-            id: -1, // Placeholder ID
+              id: -1,
             name: food?.name || 'Unknown Food (ID missing)',
             calories: 0,
             protein: 0,
@@ -222,14 +248,18 @@ export const getFoodsWithNutrition = async (foodIds?: number[]): Promise<FoodWit
             nutrients: []
           };
         }
+          
         try {
           const nutrients = await getFoodNutrients(food.id!);
+            
+            // Ensure nutrients is an array
+            const nutrientsArray = Array.isArray(nutrients) ? nutrients : [];
           
           // Calculate basic nutrition values from nutrients
-          const calories = nutrients.find(n => n.nutrient?.name === 'Calories')?.amount_per_100g || 0;
-          const protein = nutrients.find(n => n.nutrient?.name === 'Protein')?.amount_per_100g || 0;
-          const carbs = nutrients.find(n => n.nutrient?.name === 'Carbohydrates')?.amount_per_100g || 0;
-          const fat = nutrients.find(n => n.nutrient?.name === 'Fat')?.amount_per_100g || 0;
+            const calories = nutrientsArray.find(n => n?.nutrient?.name === 'Calories')?.amount_per_100g || 0;
+            const protein = nutrientsArray.find(n => n?.nutrient?.name === 'Protein')?.amount_per_100g || 0;
+            const carbs = nutrientsArray.find(n => n?.nutrient?.name === 'Carbohydrates')?.amount_per_100g || 0;
+            const fat = nutrientsArray.find(n => n?.nutrient?.name === 'Fat')?.amount_per_100g || 0;
 
           return {
             ...food,
@@ -237,10 +267,10 @@ export const getFoodsWithNutrition = async (foodIds?: number[]): Promise<FoodWit
             protein,
             carbs,
             fat,
-            nutrients
+              nutrients: nutrientsArray
           };
         } catch (error: any) {
-          console.error(`[getFoodsWithNutrition] Error fetching nutrients for food ID ${food?.id}:`, error.message);
+            console.warn(`[getFoodsWithNutrition] Error processing food ID ${food?.id}:`, error.message);
           // If we can't get nutrients, return food with zero nutrition
           return {
             ...food,
@@ -254,10 +284,18 @@ export const getFoodsWithNutrition = async (foodIds?: number[]): Promise<FoodWit
       })
     );
 
-    console.log('[getFoodsWithNutrition] Successfully processed foodsWithNutrition:', JSON.stringify(foodsWithNutrition, null, 2));
-    return foodsWithNutrition;
+      allFoodsWithNutrition.push(...batchResults);
+      
+      // Add a small delay between batches to avoid overwhelming the API
+      if (i + BATCH_SIZE < targetFoods.length) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
+
+    console.log('[getFoodsWithNutrition] Successfully processed', allFoodsWithNutrition.length, 'foods with nutrition');
+    return allFoodsWithNutrition;
   } catch (error: any) {
-    console.error('[getFoodsWithNutrition] Outer catch error:', error.message, error.stack);
+    console.error('[getFoodsWithNutrition] Outer catch error:', error.message);
     throw new Error(`Failed to retrieve foods with nutrition data. Original error: ${error.message}`);
   }
 };

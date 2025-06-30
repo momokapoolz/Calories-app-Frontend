@@ -10,9 +10,10 @@ interface MealEntryProps {
   carbs: number
   fat: number
   items: { name: string; calories: number }[]
+  nutritionLoading?: boolean
 }
 
-export function MealEntry({ title, time, calories, protein, carbs, fat, items }: MealEntryProps) {
+export function MealEntry({ title, time, calories, protein, carbs, fat, items, nutritionLoading = false }: MealEntryProps) {
   return (
     <div className="rounded-lg border p-4">
       <div className="flex items-center justify-between">
@@ -23,9 +24,13 @@ export function MealEntry({ title, time, calories, protein, carbs, fat, items }:
         <div className="flex items-center gap-2">
           <div className="text-right">
             <p className="text-sm font-medium">{calories} kcal</p>
-            <p className="text-xs text-muted-foreground">
-              P: {protein}g • C: {carbs}g • F: {fat}g
-            </p>
+            {nutritionLoading ? (
+              <p className="text-xs text-muted-foreground">Loading nutrition...</p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                P: {protein}g • C: {carbs}g • F: {fat}g
+              </p>
+            )}
           </div>
           <Button variant="ghost" size="icon" className="rounded-full">
             <ChevronDown className="h-4 w-4" />

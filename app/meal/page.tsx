@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import Link from "next/link"
-import { CalendarDays, ChevronDown, Filter, Plus, Search, Utensils, Calendar, RefreshCw } from "lucide-react"
+import { AlertCircle, CalendarDays, ChevronDown, Filter, Plus, Search, Utensils, Calendar, RefreshCw } from "lucide-react"
 import { format } from "date-fns"
 import type { DateRange } from "react-day-picker"
 
@@ -22,10 +22,12 @@ import { MealEditForm } from "./components/MealEditForm"
 import { DailyNutritionDisplay } from "./components/DailyNutritionDisplay"
 import { useMealLogs } from "./hooks/useMealLogs"
 import { useDailyNutrition } from "./hooks/useDailyNutrition"
+import { useMultipleMealNutrition } from "./hooks/useMealNutrition"
+import { useMealLogItems } from "./hooks/useMealLogItems"
 import { useFood } from "@/app/food/hooks/useFood"
 import { MealLog, MealType, CreateMealLog } from "./types"
 import { useAuth } from "@/contexts/auth-context"
-import { Alert, AlertCircle, AlertDescription } from "@/components/ui/alert"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 const MEAL_TYPES = ["Breakfast", "Lunch", "Dinner", "Snacks"] as const
 
@@ -56,6 +58,17 @@ export default function MealPage() {
 
   const { foods } = useFood()
 
+  const {
+    getMealLogItemsByMealLogId,
+    loading: itemsLoading,
+    error: itemsError,
+    clearError: clearItemsError
+  } = useMealLogItems()
+
+  // State to store meal items for each meal log
+  const [mealItemsMap, setMealItemsMap] = useState<Record<number, any[]>>({})
+  const [loadingItemsForMeals, setLoadingItemsForMeals] = useState<Record<number, boolean>>({})
+
   const { 
     nutritionData,
     loading: nutritionLoading,
@@ -65,6 +78,14 @@ export default function MealPage() {
     clearError: clearNutritionError,
     clearAllData: clearNutritionData
   } = useDailyNutrition()
+
+  // Get meal log IDs for nutrition fetching - memoized to prevent infinite loops
+  const mealLogIds = useMemo(() => {
+    return mealLogs?.map(meal => meal.id) || []
+  }, [mealLogs])
+  
+  // Fetch nutrition data for all meals
+  const { nutritionMap, loading: nutritionLoading2, getNutritionForMeal } = useMultipleMealNutrition(mealLogIds)
 
   const formattedDate = format(selectedDate, "PPP")
 
@@ -78,24 +99,87 @@ export default function MealPage() {
       setSearchTerm("")
       setNutritionRefreshKey(0) // Reset nutrition refresh
       setCurrentUserId(user?.id || null)
+      setMealItemsMap({}) // Reset meal items
+      setLoadingItemsForMeals({})
     }
   }, [user?.id, currentUserId])
 
+  // Function to fetch food items for a specific meal
+  const fetchMealItems = async (mealLogId: number) => {
+    if (mealItemsMap[mealLogId] || loadingItemsForMeals[mealLogId]) {
+      return // Already have items or already loading
+    }
+
+    try {
+      setLoadingItemsForMeals(prev => ({ ...prev, [mealLogId]: true }))
+      const items = await getMealLogItemsByMealLogId(mealLogId)
+      
+      setMealItemsMap(prev => ({
+        ...prev,
+        [mealLogId]: items
+      }))
+      
+      console.log(`Fetched ${items.length} items for meal log ${mealLogId}:`, items)
+    } catch (error) {
+      console.error(`Error fetching items for meal log ${mealLogId}:`, error)
+    } finally {
+      setLoadingItemsForMeals(prev => ({ ...prev, [mealLogId]: false }))
+    }
+  }
+
+  // Function to fetch food items for all current meals
+  const fetchAllMealItems = async () => {
+    if (!mealLogs || mealLogs.length === 0) return
+
+    console.log(`Fetching food items for ${mealLogs.length} meals...`)
+    
+    // Fetch items for all meals in parallel
+    const fetchPromises = mealLogs.map(meal => fetchMealItems(meal.id))
+    await Promise.allSettled(fetchPromises)
+  }
+
+  // Fetch meal items when meals are loaded or changed
+  useEffect(() => {
+    if (mealLogs && mealLogs.length > 0) {
+      fetchAllMealItems()
+    }
+  }, [mealLogs])
+
   // Filter meals based on current view mode and selected date(s)
   const filteredMeals = mealLogs.filter((meal: MealLog) => {
-    const mealDate = new Date(meal.created_at)
+    if (!meal.created_at) return false;
+    
+    // Parse the meal date and normalize to date-only string for comparison
+    const mealDate = new Date(meal.created_at);
+    const mealDateString = formatDateForAPI(mealDate); // Convert to YYYY-MM-DD format
     
     if (viewMode === "single") {
-      return (
-        mealDate.getFullYear() === selectedDate.getFullYear() &&
-        mealDate.getMonth() === selectedDate.getMonth() &&
-        mealDate.getDate() === selectedDate.getDate()
-      )
+      const selectedDateString = formatDateForAPI(selectedDate);
+      const matches = mealDateString === selectedDateString;
+      
+      // Debug logging in development
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[MealFilter] Comparing dates:', {
+          mealId: meal.id,
+          mealType: meal.meal_type,
+          mealCreatedAt: meal.created_at,
+          mealDateString,
+          selectedDateString,
+          matches
+        });
+      }
+      
+      return matches;
     } else if (viewMode === "range" && dateRange?.from && dateRange?.to) {
-      return mealDate >= dateRange.from && mealDate <= dateRange.to
+      // For range filtering, use the date objects directly but normalize them
+      const mealDateNormalized = new Date(mealDateString + 'T00:00:00.000Z');
+      const fromDateNormalized = new Date(formatDateForAPI(dateRange.from) + 'T00:00:00.000Z');
+      const toDateNormalized = new Date(formatDateForAPI(dateRange.to) + 'T23:59:59.999Z');
+      
+      return mealDateNormalized >= fromDateNormalized && mealDateNormalized <= toDateNormalized;
     }
     
-    return true
+    return true;
   })
 
   // Apply search filter if there's a search term
@@ -107,6 +191,62 @@ export default function MealPage() {
       )
     : filteredMeals
 
+  // Debug logging and fallback mechanism
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[MealPage] Debug State:', {
+        selectedDate: formatDateForAPI(selectedDate),
+        totalMealLogs: mealLogs.length,
+        filteredMeals: filteredMeals.length,
+        searchFilteredMeals: searchFilteredMeals.length,
+        hasNutritionData: !!nutritionData,
+        nutritionMealCount: nutritionData?.MealBreakdown?.length || 0,
+        viewMode
+      });
+
+      // If we have nutrition data (indicating meals exist) but no filtered meals, log the issue
+      if (nutritionData && nutritionData.MealBreakdown && nutritionData.MealBreakdown.length > 0 && filteredMeals.length === 0) {
+        console.warn('[MealPage] FILTERING ISSUE DETECTED:', {
+          nutritionDataIndicatesMeals: nutritionData.MealBreakdown.length,
+          mealLogsCount: mealLogs.length,
+          filteredMealsCount: filteredMeals.length,
+          suggestion: 'Meals exist (nutrition data proves it) but filtering is removing them'
+        });
+        
+        // Log first few meal logs for debugging
+        if (mealLogs.length > 0) {
+          console.log('[MealPage] First few meal logs:', mealLogs.slice(0, 3).map(meal => ({
+            id: meal.id,
+            meal_type: meal.meal_type,
+            created_at: meal.created_at,
+            created_at_formatted: formatDateForAPI(new Date(meal.created_at))
+          })));
+        }
+      }
+    }
+  }, [selectedDate, mealLogs, filteredMeals, searchFilteredMeals, nutritionData, viewMode]);
+
+  // Fallback mechanism: if we have nutrition data but no filtered meals, show all meals for the user to see
+  const finalMealsToShow = useMemo(() => {
+    // If we have nutrition data indicating meals exist, but filtering resulted in no meals
+    const hasNutritionWithMeals = nutritionData && nutritionData.MealBreakdown && nutritionData.MealBreakdown.length > 0;
+    const hasNoFilteredMeals = filteredMeals.length === 0;
+    const hasActualMealLogs = mealLogs.length > 0;
+    
+    if (hasNutritionWithMeals && hasNoFilteredMeals && hasActualMealLogs && viewMode === "single") {
+      console.warn('[MealPage] USING FALLBACK: Showing all meals due to filtering issue');
+      return searchTerm 
+        ? mealLogs.filter(meal => 
+            meal.items?.some(item => 
+              item.food_name?.toLowerCase().includes(searchTerm.toLowerCase())
+            )
+          )
+        : mealLogs;
+    }
+    
+    return searchFilteredMeals;
+  }, [searchFilteredMeals, nutritionData, filteredMeals, mealLogs, viewMode, searchTerm]);
+
   // Handle date selection for single date view
   const handleDateSelect = (date: Date | undefined) => {
     if (date) {
@@ -116,6 +256,12 @@ export default function MealPage() {
       
       // Log date selection for debugging
       console.log(`Date selected: ${dateString} for user: ${user?.email || 'unknown'}`)
+      console.log(`[DateDebug] Selected date details:`, {
+        originalDate: date.toISOString(),
+        localDateString: date.toLocaleDateString(),
+        formattedForAPI: dateString,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+      })
       
       // First fetch meal logs for the selected date
       fetchMealLogsByDate(dateString)
@@ -154,16 +300,56 @@ export default function MealPage() {
     }
   }
 
+  // Helper function to refresh data for current date
+  const refreshCurrentDateData = async () => {
+    const dateString = formatDateForAPI(selectedDate)
+    console.log(`[RefreshData] Refreshing data for ${dateString}`)
+    
+    try {
+      // Clear meal items cache to force fresh fetch
+      setMealItemsMap({})
+      setLoadingItemsForMeals({})
+      
+      // Refresh meal logs
+      await fetchMealLogsByDate(dateString)
+      
+      // Refresh nutrition data  
+      setNutritionRefreshKey(prev => prev + 1)
+      await fetchNutritionByDate(dateString)
+      
+      console.log(`[RefreshData] Successfully refreshed data for ${dateString}`)
+      
+      toast({
+        title: "Data Refreshed",
+        description: `Updated meal and nutrition data for ${format(selectedDate, "MMM dd, yyyy")}`,
+      })
+    } catch (error) {
+      console.error(`[RefreshData] Error refreshing data:`, error)
+      toast({
+        title: "Refresh Failed",
+        description: "Unable to refresh data. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
   // Handle meal creation with toast notification
   const handleAddMealLog = async (data: CreateMealLog): Promise<void> => {
     try {
       const result = await addMealLog(data)
+      
+      // Clear meal items cache to force fresh fetch of items for the new meal
+      setMealItemsMap(prev => ({ ...prev, [result.id]: [] }))
       
       // Only refresh nutrition if we're in single date view
       if (viewMode === "single") {
         // Small delay to ensure backend processing completes
         setTimeout(() => {
           setNutritionRefreshKey(prev => prev + 1)
+          // Fetch items for the new meal
+          if (result.id) {
+            fetchMealItems(result.id)
+          }
         }, 300)
       }
       toast({
@@ -184,10 +370,20 @@ export default function MealPage() {
   const handleUpdateMealLog = async (id: number, data: CreateMealLog): Promise<void> => {
     try {
       await updateMealLog(id, data)
+      
+      // Clear meal items cache for this meal to force fresh fetch
+      setMealItemsMap(prev => {
+        const newMap = { ...prev }
+        delete newMap[id]
+        return newMap
+      })
+      
       // Only refresh nutrition if we're in single date view
       if (viewMode === "single") {
         setTimeout(() => {
           setNutritionRefreshKey(prev => prev + 1)
+          // Fetch fresh items for the updated meal
+          fetchMealItems(id)
         }, 300)
       }
       toast({
@@ -208,6 +404,19 @@ export default function MealPage() {
     if (window.confirm("Are you sure you want to delete this meal log?")) {
       try {
         await deleteMealLog(id)
+        
+        // Remove meal items from cache since meal is deleted
+        setMealItemsMap(prev => {
+          const newMap = { ...prev }
+          delete newMap[id]
+          return newMap
+        })
+        setLoadingItemsForMeals(prev => {
+          const newMap = { ...prev }
+          delete newMap[id]
+          return newMap
+        })
+        
         // Only refresh nutrition if we're in single date view
         if (viewMode === "single") {
           setTimeout(() => {
@@ -232,16 +441,18 @@ export default function MealPage() {
   // The DailyNutritionDisplay component handles its own data fetching when the date prop changes.
   // We only refresh nutrition when meals are added/updated/deleted on the current date.
 
-  // Calculate total nutrition for filtered meals (fallback for range view)
-  const totalNutrition = searchFilteredMeals.reduce(
-    (acc, meal) => ({
-      calories: acc.calories + (meal.total_calories || 0),
-      protein: acc.protein + (meal.total_protein || 0),
-      carbs: acc.carbs + (meal.total_carbs || 0),
-      fat: acc.fat + (meal.total_fat || 0),
-    }),
-    { calories: 0, protein: 0, carbs: 0, fat: 0 }
-  )
+  // Calculate total nutrition for filtered meals (fallback for range view)  
+  const totalNutrition = useMemo(() => {
+    return finalMealsToShow.reduce(
+      (acc, meal) => ({
+        calories: acc.calories + (meal.total_calories || 0),
+        protein: acc.protein + (meal.total_protein || 0),
+        carbs: acc.carbs + (meal.total_carbs || 0),
+        fat: acc.fat + (meal.total_fat || 0),
+      }),
+      { calories: 0, protein: 0, carbs: 0, fat: 0 }
+    )
+  }, [finalMealsToShow])
 
   return (
     <ProtectedRoute>
@@ -362,6 +573,9 @@ export default function MealPage() {
                       <div>User ID: {user?.id || 'None'}</div>
                       <div>User Email: {user?.email || 'None'}</div>
                       <div>Meal Logs Count: {mealLogs.length}</div>
+                      <div>Filtered Meals Count: {filteredMeals.length}</div>
+                      <div>Search Filtered Meals Count: {searchFilteredMeals.length}</div>
+                      <div>Final Meals To Show: {finalMealsToShow.length}</div>
                       <div>Selected Date: {formatDateForAPI(selectedDate)}</div>
                       <div>Date Object: {selectedDate.toISOString()}</div>
                       <div>Local Date String: {selectedDate.toLocaleDateString()}</div>
@@ -369,6 +583,17 @@ export default function MealPage() {
                       <div>Nutrition Loading: {nutritionLoading ? 'Yes' : 'No'}</div>
                       <div>Has Nutrition Data: {nutritionData ? 'Yes' : 'No'}</div>
                       <div>Auth Token ID: {localStorage.getItem('accessToken')?.substring(0, 8) || 'None'}...</div>
+                      {mealLogs.length > 0 && (
+                        <div className="mt-2 p-2 bg-gray-100 rounded">
+                          <div><strong>Meal Logs Details:</strong></div>
+                          {mealLogs.slice(0, 3).map((meal, index) => (
+                            <div key={meal.id} className="text-xs">
+                              Meal {index + 1}: {meal.meal_type} on {formatDateForAPI(new Date(meal.created_at))} (ID: {meal.id})
+                            </div>
+                          ))}
+                          {mealLogs.length > 3 && <div className="text-xs">...and {mealLogs.length - 3} more</div>}
+                        </div>
+                      )}
                       <div className="text-xs text-gray-500 mt-1">
                         <em>Note: The app uses UUID token IDs for authentication, not full JWT tokens</em>
                       </div>
@@ -434,8 +659,9 @@ export default function MealPage() {
                                 Current format used: ${formatDateForAPI(date)}
                               `);
                             } catch (err) {
-                              console.error('Error testing date formats:', err);
-                              alert(`Error: ${err.message}`);
+                              const error = err as Error;
+                              console.error('Error testing date formats:', error);
+                              alert(`Error: ${error.message}`);
                             }
                           }}
                         >
@@ -472,8 +698,9 @@ export default function MealPage() {
                                 
                                 alert(`Meal Logs API Status: ${response.status}\nFound: ${Array.isArray(data) ? data.length : 'Not an array'} meals`);
                               } catch (err) {
-                                console.error('Error testing meal logs API:', err);
-                                alert(`Error: ${err.message}`);
+                                const error = err as Error;
+                                console.error('Error testing meal logs API:', error);
+                                alert(`Error: ${error.message}`);
                               }
                             }}
                           >
@@ -506,8 +733,9 @@ export default function MealPage() {
                                 
                                 alert(`Nutrition API Status: ${response.status}\nUser ID: ${data?.user_id}\nMeal Count: ${data?.MealBreakdown?.length || 0}`);
                               } catch (err) {
-                                console.error('Error testing nutrition API:', err);
-                                alert(`Error: ${err.message}`);
+                                const error = err as Error;
+                                console.error('Error testing nutrition API:', error);
+                                alert(`Error: ${error.message}`);
                               }
                             }}
                           >
@@ -531,7 +759,7 @@ export default function MealPage() {
               )}
 
               {/* Range view - simple nutrition summary */}
-              {viewMode === "range" && searchFilteredMeals.length > 0 && (
+              {viewMode === "range" && finalMealsToShow.length > 0 && (
                 <Card>
                   <CardHeader>
                     <CardTitle>Range Nutrition Summary</CardTitle>
@@ -576,112 +804,226 @@ export default function MealPage() {
                   <TabsContent key={type} value={type.toLowerCase()} className="mt-4">
                     <Card>
                       <CardHeader>
-                        <CardTitle>{type}</CardTitle>
-                        <CardDescription>
-                          Meals logged for {type.toLowerCase()} 
-                          {viewMode === "single" ? ` on ${formattedDate}` : " in selected period"}
-                        </CardDescription>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <CardTitle>{type}</CardTitle>
+                            <CardDescription>
+                              Meals logged for {type.toLowerCase()} 
+                              {viewMode === "single" ? ` on ${formattedDate}` : " in selected period"}
+                            </CardDescription>
+                          </div>
+                          {viewMode === "single" && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={refreshCurrentDateData}
+                              disabled={loading || nutritionLoading2}
+                            >
+                              <RefreshCw className="h-4 w-4 mr-2" />
+                              Refresh
+                            </Button>
+                          )}
+                        </div>
                       </CardHeader>
                       <CardContent>
-                        {loading ? (
-                          <div className="text-center py-4">Loading...</div>
+                        {loading || nutritionLoading2 ? (
+                          <div className="text-center py-8 space-y-4">
+                            <div className="mx-auto w-8 h-8 animate-spin border-2 border-primary border-t-transparent rounded-full"></div>
+                            <p className="text-muted-foreground">
+                              {loading ? "Loading meals..." : "Loading nutrition data..."}
+                            </p>
+                          </div>
                         ) : (
                           <div className="space-y-4">
-                            {searchFilteredMeals
+                            {finalMealsToShow
                               .filter((meal: MealLog) => meal.meal_type === type)
-                              .map((meal: MealLog) => (
-                                <div
-                                  key={meal.id}
-                                  className="flex flex-col gap-2 p-4 border rounded-lg"
-                                >
-                                  <div className="flex items-center justify-between">
-                                    <h3 className="font-medium">
-                                      {format(new Date(meal.created_at), "MMM dd, yyyy 'at' h:mm a")}
-                                    </h3>
-                                    <div className="flex gap-2">
-                                                                              <MealEditForm
+                              .map((meal: MealLog) => {
+                                // Get nutrition data for this specific meal
+                                const nutrition = getNutritionForMeal(meal.id);
+                                
+                                return (
+                                  <div
+                                    key={meal.id}
+                                    className="flex flex-col gap-4 p-6 border rounded-lg bg-card hover:shadow-md transition-shadow"
+                                  >
+                                    {/* Header with timestamp and actions */}
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex flex-col">
+                                        <h3 className="font-semibold text-lg">
+                                          {meal.meal_type}
+                                        </h3>
+                                        <p className="text-sm text-muted-foreground">
+                                          {format(new Date(meal.created_at), "MMM dd, yyyy 'at' h:mm a")}
+                                        </p>
+                                      </div>
+                                      <div className="flex gap-2">
+                                        <MealEditForm
                                           meal={meal}
                                           onSubmit={handleUpdateMealLog}
                                         />
-                                      <Button
-                                        variant="destructive"
-                                        size="sm"
-                                        onClick={() => handleDeleteMealLog(meal.id)}
-                                      >
-                                        Delete
-                                      </Button>
-                                    </div>
-                                  </div>
-                                  
-                                  {/* Meal items */}
-                                  <div className="space-y-2">
-                                    {meal.items?.map(item => (
-                                      <div
-                                        key={item.id}
-                                        className="flex items-center justify-between text-sm"
-                                      >
-                                        <span>
-                                          {item.food_name || 
-                                           foods.find(f => f.id === item.food_id)?.name || 
-                                           `Food ID: ${item.food_id}`}
-                                        </span>
-                                        <span className="text-muted-foreground">
-                                          {item.quantity_grams}g
-                                        </span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                  
-                                  {/* Nutritional totals */}
-                                  {(meal.total_calories || meal.total_protein) && (
-                                    <div className="mt-2 pt-2 border-t">
-                                      <div className="grid grid-cols-2 gap-2 text-sm">
-                                        {meal.total_calories && (
-                                          <div className="flex justify-between">
-                                            <span className="text-muted-foreground">Calories:</span>
-                                            <span>{meal.total_calories} kcal</span>
-                                          </div>
-                                        )}
-                                        {meal.total_protein && (
-                                          <div className="flex justify-between">
-                                            <span className="text-muted-foreground">Protein:</span>
-                                            <span>{meal.total_protein}g</span>
-                                          </div>
-                                        )}
-                                        {meal.total_carbs && (
-                                          <div className="flex justify-between">
-                                            <span className="text-muted-foreground">Carbs:</span>
-                                            <span>{meal.total_carbs}g</span>
-                                          </div>
-                                        )}
-                                        {meal.total_fat && (
-                                          <div className="flex justify-between">
-                                            <span className="text-muted-foreground">Fat:</span>
-                                            <span>{meal.total_fat}g</span>
-                                          </div>
-                                        )}
+                                        <Button
+                                          variant="destructive"
+                                          size="sm"
+                                          onClick={() => handleDeleteMealLog(meal.id)}
+                                        >
+                                          Delete
+                                        </Button>
                                       </div>
                                     </div>
-                                  )}
-                                </div>
-                              ))}
+
+                                    {/* Quick nutrition overview */}
+                                    <div className="grid grid-cols-4 gap-4 p-3 bg-muted/50 rounded-lg">
+                                      <div className="text-center">
+                                        <div className="text-lg font-bold text-blue-600">
+                                          {nutrition.loading ? "..." : (nutrition.calories || meal.total_calories || 0)}
+                                        </div>
+                                        <div className="text-xs text-muted-foreground">Calories</div>
+                                      </div>
+                                      <div className="text-center">
+                                        <div className="text-lg font-bold text-green-600">
+                                          {nutrition.loading ? "..." : `${nutrition.protein || meal.total_protein || 0}g`}
+                                        </div>
+                                        <div className="text-xs text-muted-foreground">Protein</div>
+                                      </div>
+                                      <div className="text-center">
+                                        <div className="text-lg font-bold text-orange-600">
+                                          {nutrition.loading ? "..." : `${nutrition.carbs || meal.total_carbs || 0}g`}
+                                        </div>
+                                        <div className="text-xs text-muted-foreground">Carbs</div>
+                                      </div>
+                                      <div className="text-center">
+                                        <div className="text-lg font-bold text-purple-600">
+                                          {nutrition.loading ? "..." : `${nutrition.fat || meal.total_fat || 0}g`}
+                                        </div>
+                                        <div className="text-xs text-muted-foreground">Fat</div>
+                                      </div>
+                                    </div>
+                                    
+                                    {/* Food items list */}
+                                    <div className="space-y-2">
+                                      {(() => {
+                                        const mealItems = mealItemsMap[meal.id] || []
+                                        const isLoadingItems = loadingItemsForMeals[meal.id] || false
+                                        const itemCount = mealItems.length
+                                        
+                                        return (
+                                          <>
+                                            <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
+                                              Food Items ({itemCount})
+                                              {isLoadingItems && (
+                                                <span className="ml-2 text-xs animate-pulse">Loading...</span>
+                                              )}
+                                            </h4>
+                                            
+                                            {isLoadingItems ? (
+                                              <div className="text-center py-4">
+                                                <div className="mx-auto w-4 h-4 animate-spin border-2 border-primary border-t-transparent rounded-full"></div>
+                                                <p className="text-xs text-muted-foreground mt-2">Loading food items...</p>
+                                              </div>
+                                            ) : mealItems.length > 0 ? (
+                                              <div className="space-y-2">
+                                                {mealItems.map(item => (
+                                                  <div
+                                                    key={item.id}
+                                                    className="flex items-center justify-between p-2 bg-background rounded border"
+                                                  >
+                                                    <div className="flex flex-col">
+                                                      <span className="font-medium">
+                                                        {item.food_name || 
+                                                         foods.find(f => f.id === item.food_id)?.name || 
+                                                         `Food ID: ${item.food_id}`}
+                                                      </span>
+                                                      <span className="text-xs text-muted-foreground">
+                                                        Quantity: {item.quantity} • Weight: {item.quantity_grams}g
+                                                      </span>
+                                                    </div>
+                                                    {item.calories && (
+                                                      <span className="text-sm font-medium text-blue-600">
+                                                        {item.calories} kcal
+                                                      </span>
+                                                    )}
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            ) : (
+                                              <div className="text-center py-4 text-muted-foreground text-sm">
+                                                No food items recorded for this meal
+                                              </div>
+                                            )}
+                                          </>
+                                        )
+                                      })()}
+                                    </div>
+
+                                    {/* Show loading state for nutrition */}
+                                    {nutrition.loading && (
+                                      <div className="text-center py-2">
+                                        <span className="text-sm text-muted-foreground">
+                                          Loading detailed nutrition data...
+                                        </span>
+                                      </div>
+                                    )}
+
+                                    {/* Show nutrition error if any */}
+                                    {nutrition.error && (
+                                      <div className="text-center py-2">
+                                        <span className="text-sm text-red-500">
+                                          Error loading nutrition: {nutrition.error}
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
                             
                             {/* Empty state */}
-                            {searchFilteredMeals.filter((meal: MealLog) => meal.meal_type === type).length === 0 && (
-                              <div className="text-center py-8">
-                                <p className="text-muted-foreground">
-                                  {searchTerm 
-                                    ? `No meals found for "${searchTerm}" in ${type.toLowerCase()}`
-                                    : `No meals logged for ${type.toLowerCase()}`
-                                  }
-                                </p>
-                                <MealForm
-                                  onSubmit={(data: CreateMealLog) => handleAddMealLog({ ...data, meal_type: type as MealType })}
-                                  className="mt-4"
-                                  buttonText={`Add ${type} Meal`}
-                                />
-                              </div>
-                            )}
+                            {(() => {
+                              const mealsForType = finalMealsToShow.filter((meal: MealLog) => meal.meal_type === type);
+                              const totalMealsCount = finalMealsToShow.length;
+                              const allMealTypes = [...new Set(finalMealsToShow.map(m => m.meal_type))];
+                              
+                              // Log debug information for empty states
+                              if (mealsForType.length === 0 && totalMealsCount > 0) {
+                                console.log(`No ${type} meals found, but ${totalMealsCount} total meals exist for ${formattedDate}. Available meal types:`, allMealTypes);
+                              } else if (mealsForType.length === 0 && totalMealsCount === 0) {
+                                console.log(`No meals at all found for ${formattedDate}. Selected date:`, selectedDate.toISOString().split('T')[0]);
+                              }
+                              
+                              return mealsForType.length === 0 && (
+                                <div className="text-center py-8 space-y-4">
+                                  <div className="mx-auto w-16 h-16 bg-muted rounded-full flex items-center justify-center">
+                                    <Utensils className="h-8 w-8 text-muted-foreground" />
+                                  </div>
+                                  <div>
+                                    <h3 className="font-medium text-lg mb-2">
+                                      {searchTerm 
+                                        ? `No ${type.toLowerCase()} meals found for "${searchTerm}"`
+                                        : `No ${type.toLowerCase()} meals logged`
+                                      }
+                                    </h3>
+                                    <p className="text-muted-foreground mb-2">
+                                      {viewMode === "single" 
+                                        ? `on ${formattedDate}`
+                                        : "in the selected period"
+                                      }
+                                    </p>
+                                    {/* Debug information in development */}
+                                    {process.env.NODE_ENV === 'development' && (
+                                      <div className="text-xs text-muted-foreground mb-4 p-2 bg-muted rounded">
+                                        <p>Debug: Total meals loaded: {totalMealsCount}</p>
+                                        <p>Available meal types: {allMealTypes.join(', ') || 'None'}</p>
+                                        <p>Date: {selectedDate.toISOString().split('T')[0]}</p>
+                                      </div>
+                                    )}
+                                  </div>
+                                  <MealForm
+                                    onSubmit={(data: CreateMealLog) => handleAddMealLog({ ...data, meal_type: type as MealType })}
+                                    className="mt-4"
+                                    buttonText={`Add ${type} Meal`}
+                                  />
+                                </div>
+                              );
+                            })()}
                           </div>
                         )}
                       </CardContent>

@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { foodId: string } }
+  { params }: { params: Promise<{ foodId: string }> }
 ) {
   try {
-    const { foodId } = params
+    const { foodId } = await params
     
     // Get the authorization header from the incoming request
     const authHeader = request.headers.get('authorization')
