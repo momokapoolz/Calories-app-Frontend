@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import axios from 'axios'
 
 export async function GET(
   request: NextRequest,
@@ -28,27 +29,29 @@ export async function GET(
 
     // Make request to the actual backend API
     const backendUrl = process.env.BACKEND_URL || 'http://localhost:8080'
-    const response = await fetch(`${backendUrl}/api/v1/meal-log-items/${id}`, {
-      method: 'GET',
+    const response = await axios.get(`${backendUrl}/api/v1/meal-log-items/${id}`, {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': authHeader,
       },
     })
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Meal log item not found' }))
-      return NextResponse.json(
-        errorData,
-        { status: response.status }
-      )
-    }
-
-    const data = await response.json()
+    const data = response.data
     return NextResponse.json(data)
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error in meal log item GET API route:', error)
+    
+    // If backend error (axios error with response), pass it through
+    if (error.response) {
+      const errorData = error.response.data || { error: 'Meal log item not found' }
+      return NextResponse.json(
+        errorData,
+        { status: error.response.status }
+      )
+    }
+    
+    // If other error (network, timeout, etc.)
     return NextResponse.json(
       { error: 'Failed to fetch meal log item' },
       { status: 500 }
@@ -87,28 +90,29 @@ export async function PUT(
 
     // Make request to the actual backend API
     const backendUrl = process.env.BACKEND_URL || 'http://localhost:8080'
-    const response = await fetch(`${backendUrl}/api/v1/meal-log-items/${id}`, {
-      method: 'PUT',
+    const response = await axios.put(`${backendUrl}/api/v1/meal-log-items/${id}`, body, {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': authHeader,
       },
-      body: JSON.stringify(body),
     })
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Failed to update meal log item' }))
-      return NextResponse.json(
-        errorData,
-        { status: response.status }
-      )
-    }
-
-    const data = await response.json()
+    const data = response.data
     return NextResponse.json(data)
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error in meal log item PUT API route:', error)
+    
+    // If backend error (axios error with response), pass it through
+    if (error.response) {
+      const errorData = error.response.data || { error: 'Failed to update meal log item' }
+      return NextResponse.json(
+        errorData,
+        { status: error.response.status }
+      )
+    }
+    
+    // If other error (network, timeout, etc.)
     return NextResponse.json(
       { error: 'Failed to update meal log item' },
       { status: 500 }
@@ -144,27 +148,29 @@ export async function DELETE(
 
     // Make request to the actual backend API
     const backendUrl = process.env.BACKEND_URL || 'http://localhost:8080'
-    const response = await fetch(`${backendUrl}/api/v1/meal-log-items/${id}`, {
-      method: 'DELETE',
+    const response = await axios.delete(`${backendUrl}/api/v1/meal-log-items/${id}`, {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': authHeader,
       },
     })
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Failed to delete meal log item' }))
-      return NextResponse.json(
-        errorData,
-        { status: response.status }
-      )
-    }
-
-    const data = await response.json()
+    const data = response.data
     return NextResponse.json(data)
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error in meal log item DELETE API route:', error)
+    
+    // If backend error (axios error with response), pass it through
+    if (error.response) {
+      const errorData = error.response.data || { error: 'Failed to delete meal log item' }
+      return NextResponse.json(
+        errorData,
+        { status: error.response.status }
+      )
+    }
+    
+    // If other error (network, timeout, etc.)
     return NextResponse.json(
       { error: 'Failed to delete meal log item' },
       { status: 500 }

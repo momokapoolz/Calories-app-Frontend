@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import axios from 'axios';
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,7 +11,7 @@ export async function GET(request: NextRequest) {
     console.log(`Proxying request to: ${backendUrl}`);
     
     // Make the request to the backend
-    const response = await fetch(backendUrl, {
+    const response = await axios.get(backendUrl, {
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
@@ -18,23 +19,25 @@ export async function GET(request: NextRequest) {
       }
     });
     
-    // If the backend returns an error, pass it through
-    if (!response.ok) {
-      console.error(`Backend returned error: ${response.status}`);
-      return NextResponse.json(
-        { error: `Failed to fetch profile data: ${response.statusText}` },
-        { status: response.status }
-      );
-    }
-    
     // Get the data from the backend
-    const data = await response.json();
+    const data = response.data;
     console.log('Profile data received from backend');
     
     // Return the data
     return NextResponse.json(data);
   } catch (error: any) {
     console.error('Error in profile API route:', error);
+    
+    // If backend error (axios error with response), pass it through
+    if (error.response) {
+      console.error(`Backend returned error: ${error.response.status}`);
+      return NextResponse.json(
+        { error: `Failed to fetch profile data: ${error.response.statusText}` },
+        { status: error.response.status }
+      );
+    }
+    
+    // If other error (network, timeout, etc.)
     return NextResponse.json(
       { error: `Failed to fetch profile data: ${error.message}` },
       { status: 500 }

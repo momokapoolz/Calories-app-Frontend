@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import axios from 'axios'
 
 export async function POST(request: NextRequest) {
   try {
@@ -27,28 +28,29 @@ export async function POST(request: NextRequest) {
 
     // Make request to the actual backend API
     const backendUrl = process.env.BACKEND_URL || 'http://localhost:8080'
-    const response = await fetch(`${backendUrl}/api/v1/meal-log-items`, {
-      method: 'POST',
+    const response = await axios.post(`${backendUrl}/api/v1/meal-log-items`, body, {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': authHeader,
       },
-      body: JSON.stringify(body),
     })
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Failed to create meal log item' }))
-      return NextResponse.json(
-        errorData,
-        { status: response.status }
-      )
-    }
-
-    const data = await response.json()
+    const data = response.data
     return NextResponse.json(data, { status: 201 })
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error in meal log items API route:', error)
+    
+    // If backend error (axios error with response), pass it through
+    if (error.response) {
+      const errorData = error.response.data || { error: 'Failed to create meal log item' }
+      return NextResponse.json(
+        errorData,
+        { status: error.response.status }
+      )
+    }
+    
+    // If other error (network, timeout, etc.)
     return NextResponse.json(
       { error: 'Failed to create meal log item' },
       { status: 500 }
