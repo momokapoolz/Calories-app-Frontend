@@ -7,8 +7,8 @@ export async function GET(request: NextRequest) {
     const token = request.headers.get('authorization');
     
     // Build the backend URL
-          const backendUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1'}/profile`;
-    console.log(`Proxying request to: ${backendUrl}`);
+    const backendUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1'}/profile`;
+    console.log(`Proxying GET request to: ${backendUrl}`);
     
     // Make the request to the backend
     const response = await axios.get(backendUrl, {
@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
     
     // If other error (network, timeout, etc.)
     return NextResponse.json(
-      { error: `Failed to fetch profile data: ${error.message}` },
+      { error: `Failed to update profile: ${error.message}` },
       { status: 500 }
     );
   }
