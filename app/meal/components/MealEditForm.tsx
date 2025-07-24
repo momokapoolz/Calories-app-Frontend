@@ -77,8 +77,11 @@ export function MealEditForm({ meal, onSubmit, buttonText, className }: MealEdit
   }, [open, meal.items])
 
   const handleSubmit = async (data: MealFormData) => {
+    console.log('🍽️ MealEditForm handleSubmit called with:', { data, selectedFoodItems, meal });
+    
     // Validate that we have at least one food item
     if (selectedFoodItems.length === 0) {
+      console.log('❌ Validation failed: No food items');
       toast({
         title: "Validation Error",
         description: "Please add at least one food item", 
@@ -87,15 +90,25 @@ export function MealEditForm({ meal, onSubmit, buttonText, className }: MealEdit
       return
     }
 
+    const submitData = {
+      meal_type: data.meal_type,
+      items: selectedFoodItems,
+    };
+
+    console.log('📤 About to call onSubmit with:', { 
+      mealId: meal.id, 
+      submitData, 
+      originalMealType: meal.meal_type,
+      originalItems: meal.items || []
+    });
+
     try {
-      await onSubmit(meal.id, {
-        meal_type: data.meal_type,
-        items: selectedFoodItems,
-      })
+      await onSubmit(meal.id, submitData)
+      console.log('✅ onSubmit completed successfully');
       setOpen(false)
     } catch (error) {
       // Error handling is done in the parent component
-      console.error('Error in MealEditForm:', error)
+      console.error('❌ Error in MealEditForm:', error)
     }
   }
 

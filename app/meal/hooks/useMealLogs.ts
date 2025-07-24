@@ -135,22 +135,59 @@ export const useMealLogs = () => {
 
   // Update an existing meal log
   const updateMealLog = async (id: number, data: CreateMealLog): Promise<MealLog> => {
+    console.log('🔧 updateMealLog called with:', { id, data });
+    
     try {
       setLoading(true)
-      const response = await axios.put(`/api/meal-logs/${id}`, data, {
+      
+      // Step 1: Update meal type only (if provided)
+      if (data.meal_type) {
+        console.log('📡 Step 1: Updating meal type to:', data.meal_type);
+        const mealTypeResponse = await axios.put(`/api/meal-logs/${id}`, 
+          { meal_type: data.meal_type }, 
+          { headers: getAuthHeaders() }
+        );
+        console.log('✅ Meal type updated:', mealTypeResponse.status);
+      }
+      
+      // Step 2: Handle items separately
+      if (data.items && data.items.length > 0) {
+        console.log('📡 Step 2: Updating items. Deleting all existing items first...');
+        
+        // Delete all existing items from this meal log
+        await axios.delete(`/api/meal-log-items/meal-log/${id}`, {
+          headers: getAuthHeaders()
+        });
+        console.log('✅ Existing items deleted');
+        
+        // Add new items
+        console.log('📡 Adding new items:', data.items);
+        await axios.post(`/api/meal-logs/${id}/items`, 
+          { items: data.items }, 
+          { headers: getAuthHeaders() }
+        );
+        console.log('✅ New items added');
+      }
+      
+      // Step 3: Fetch the updated meal log to return
+      console.log('📡 Step 3: Fetching updated meal log...');
+      const updatedMealResponse = await axios.get(`/api/meal-logs/${id}`, {
         headers: getAuthHeaders()
-      })
+      });
+      
+      const updatedMeal = updatedMealResponse.data;
+      console.log('✅ Updated meal fetched:', updatedMeal);
       
       // Update the meal log in the local state
       setMealLogs(prev =>
-        prev.map(log => (log.id === id ? response.data : log))
+        prev.map(log => (log.id === id ? updatedMeal : log))
       )
       setError(null)
-      return response.data
+      return updatedMeal
     } catch (err) {
       const errorMessage = `Failed to update meal log: ${getErrorMessage(err)}`
       setError(errorMessage)
-      console.error('Error updating meal log:', err)
+      console.error('❌ Error updating meal log:', err)
       throw err
     } finally {
       setLoading(false)

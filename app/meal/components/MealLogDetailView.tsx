@@ -35,6 +35,7 @@ export const MealLogDetailView: React.FC<MealLogDetailViewProps> = ({
 
   const {
     fetchMealLogById,
+    updateMealLog,
     deleteMealLog,
     loading,
     error,
@@ -197,14 +198,22 @@ export const MealLogDetailView: React.FC<MealLogDetailViewProps> = ({
               <MealEditForm
                 meal={mealLog}
                 onSubmit={async (id, data) => {
-                  // This will be handled by the MealEditForm component
+                  try {
+                    await updateMealLog(id, data)
                   handleMealUpdated()
+                  } catch (error) {
+                    toast({
+                      title: "Error",
+                      description: "Failed to update meal log",
+                      variant: "destructive"
+                    })
+                  }
                 }}
-                trigger={
-                  <Button variant="outline" size="sm">
+                buttonText={
+                  <>
                     <Edit className="h-4 w-4 mr-2" />
                     Edit
-                  </Button>
+                  </>
                 }
               />
               

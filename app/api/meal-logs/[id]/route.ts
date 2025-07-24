@@ -66,18 +66,48 @@ export async function PUT(
     console.log('Update meal log API route called, ID:', id);
     const body = await request.json();
     
+    console.log('Original request body:', JSON.stringify(body, null, 2));
+    
+    // Filter only the fields that should be updated
+    // Exclude system fields like created_at, user_id, id to prevent corruption
+    const updateData: any = {};
+    
+    // Only include meal_type if it exists and is a string
+    if (body.meal_type && typeof body.meal_type === 'string') {
+      updateData.meal_type = body.meal_type;
+    }
+    
+    // Only include items if it exists and is an array
+    if (body.items && Array.isArray(body.items)) {
+      updateData.items = body.items;
+    }
+    
+    console.log('Filtered update data:', JSON.stringify(updateData, null, 2));
+    
+    // Ensure we're not sending any other fields
+    if (Object.keys(updateData).length === 0) {
+      console.error('No valid fields to update');
+      return NextResponse.json(
+        { message: 'No valid fields to update' },
+        { status: 400 }
+      );
+    }
+    
     const headers = getAuthFromRequest(request);
-    const response = await axios.put(`${API_URL}/meal-logs/${id}`, body, {
+    console.log('Making request to backend:', `${API_URL}/meal-logs/${id}`);
+    const response = await axios.put(`${API_URL}/meal-logs/${id}`, updateData, {
       headers,
     });
     
     console.log('Update meal log response status:', response.status);
+    console.log('Backend response:', JSON.stringify(response.data, null, 2));
     
     return NextResponse.json(response.data, { status: response.status });
   } catch (error: any) {
     console.error('Update meal log API error:', error);
     
     if (error.response) {
+      console.error('Backend error response:', JSON.stringify(error.response.data, null, 2));
       return NextResponse.json(
         error.response.data || { message: 'API server error' },
         { status: error.response.status }
