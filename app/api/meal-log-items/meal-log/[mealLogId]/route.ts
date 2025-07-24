@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import axios from 'axios'
 
 export async function GET(
   request: NextRequest,
@@ -28,27 +29,29 @@ export async function GET(
 
     // Make request to the actual backend API
     const backendUrl = process.env.BACKEND_URL || 'http://localhost:8080'
-    const response = await fetch(`${backendUrl}/api/v1/meal-log-items/meal-log/${mealLogId}`, {
-      method: 'GET',
+    const response = await axios.get(`${backendUrl}/api/v1/meal-log-items/meal-log/${mealLogId}`, {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': authHeader,
       },
     })
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Failed to fetch meal log items' }))
-      return NextResponse.json(
-        errorData,
-        { status: response.status }
-      )
-    }
-
-    const data = await response.json()
+    const data = response.data
     return NextResponse.json(data)
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error in meal log items by meal log ID GET API route:', error)
+    
+    // If backend error (axios error with response), pass it through
+    if (error.response) {
+      const errorData = error.response.data || { error: 'Failed to fetch meal log items' }
+      return NextResponse.json(
+        errorData,
+        { status: error.response.status }
+      )
+    }
+    
+    // If other error (network, timeout, etc.)
     return NextResponse.json(
       { error: 'Failed to fetch meal log items' },
       { status: 500 }
@@ -84,27 +87,29 @@ export async function DELETE(
 
     // Make request to the actual backend API
     const backendUrl = process.env.BACKEND_URL || 'http://localhost:8080'
-    const response = await fetch(`${backendUrl}/api/v1/meal-log-items/meal-log/${mealLogId}`, {
-      method: 'DELETE',
+    const response = await axios.delete(`${backendUrl}/api/v1/meal-log-items/meal-log/${mealLogId}`, {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': authHeader,
       },
     })
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Failed to delete meal log items' }))
-      return NextResponse.json(
-        errorData,
-        { status: response.status }
-      )
-    }
-
-    const data = await response.json()
+    const data = response.data
     return NextResponse.json(data)
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error in meal log items by meal log ID DELETE API route:', error)
+    
+    // If backend error (axios error with response), pass it through
+    if (error.response) {
+      const errorData = error.response.data || { error: 'Failed to delete meal log items' }
+      return NextResponse.json(
+        errorData,
+        { status: error.response.status }
+      )
+    }
+    
+    // If other error (network, timeout, etc.)
     return NextResponse.json(
       { error: 'Failed to delete meal log items' },
       { status: 500 }
