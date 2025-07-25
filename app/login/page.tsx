@@ -241,10 +241,17 @@ export default function LoginPage() {
           </form>
         </Form>
 
-        <div className="text-center text-sm">
-          <Link href="/register" className="text-primary hover:underline">
-            Don't have an account? Sign up
-          </Link>
+        <div className="text-center text-sm space-y-2">
+          <div>
+            <Link href="/register" className="text-primary hover:underline">
+              Don't have an account? Sign up
+            </Link>
+          </div>
+          <div>
+            <Link href="/" className="text-muted-foreground hover:text-primary">
+              ← Back to Home
+            </Link>
+          </div>
         </div>
       </div>
     </div>

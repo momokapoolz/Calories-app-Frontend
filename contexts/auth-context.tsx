@@ -270,7 +270,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setUser(userData)
     // Also store in localStorage for persistence
     localStorage.setItem('user', JSON.stringify(userData))
-    router.push("/")
+    router.push("/dashboard")
   }
   
   const logout = async () => {

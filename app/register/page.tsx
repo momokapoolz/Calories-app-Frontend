@@ -289,11 +289,18 @@ export default function RegisterPage() {
           </Form>
         </CardContent>
         <CardFooter className="flex flex-col space-y-4">
-          <div className="text-sm text-center text-muted-foreground">
-            Already have an account?{" "}
-            <Link href="/login" className="text-primary underline underline-offset-4 hover:text-primary/90">
-              Sign in
-            </Link>
+          <div className="text-sm text-center text-muted-foreground space-y-2">
+            <div>
+              Already have an account?{" "}
+              <Link href="/login" className="text-primary underline underline-offset-4 hover:text-primary/90">
+                Sign in
+              </Link>
+            </div>
+            <div>
+              <Link href="/" className="text-muted-foreground hover:text-primary">
+                ← Back to Home
+              </Link>
+            </div>
           </div>
         </CardFooter>
       </Card>
