@@ -1,7 +1,7 @@
 import axios, { AxiosError, AxiosResponse } from 'axios';
 
-// Base API URL - should be configured based on environment
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
+// Use Next.js API routes instead of calling backend directly
+const API_URL = '/api';
 
 // Check if we're running on the client side
 const isClient = typeof window !== 'undefined';
@@ -24,7 +24,7 @@ const axiosInstance = isClient
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
-      withCredentials: true, // Re-enable since backend supports CORS with credentials
+      // Remove withCredentials since we're using Next.js API routes
       timeout: 10000,
     })
   : null;
@@ -39,7 +39,7 @@ if (isClient && axiosInstance) {
       
       // Only add Authorization header if token ID exists and is not empty
       if (tokenId && tokenId.trim() !== '' && config.headers) {
-        // The backend expects the UUID token ID in the Authorization header
+        // The API routes will forward the token to the backend
         // Format: Bearer {token_id}
         config.headers.Authorization = `Bearer ${tokenId}`;
         

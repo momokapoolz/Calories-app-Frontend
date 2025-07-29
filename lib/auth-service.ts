@@ -108,8 +108,8 @@ function safeLocalStorageGet(key: string): string | null {
  */
 export async function registerUser(data: RegisterData): Promise<{status: string, message: string}> {
   try {
-    // Use the provided API endpoint
-    const response = await axios.post('http://localhost:8080/api/v1/register', data, {
+    // Use the Next.js API route instead of calling backend directly
+    const response = await axios.post('/api/auth/register', data, {
       headers: {
         'Content-Type': 'application/json',
       },

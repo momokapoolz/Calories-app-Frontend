@@ -28,9 +28,6 @@ const loginSchema = z.object({
 
 type LoginData = z.infer<typeof loginSchema>
 
-// Your backend base URL
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
-
 export default function LoginPage() {
   const { login } = useAuth()
   const { toast } = useToast()
@@ -52,8 +49,7 @@ export default function LoginPage() {
     if (!mounted) return; // Prevent submission if not mounted
     
     try {
-      setIsLoading(true);      console.log('Attempting login with JWT endpoint');
-      console.log('API_URL:', API_URL);
+      setIsLoading(true);      console.log('Attempting login with API route');
       console.log('Login data:', data);
       
       // Use the frontend API route that proxies to the backend
@@ -150,7 +146,7 @@ export default function LoginPage() {
       
       // Handle different types of errors
       if (error.message === 'Network Error') {
-        errorMessage = "Cannot connect to server. Please check if the backend is running on http://localhost:8080";
+        errorMessage = "Cannot connect to server. Please check if the backend is running";
       } else if (error.response) {
         errorMessage = error.response.data?.message || error.response.data?.error || 'Invalid email or password';
       } else if (error.message) {
