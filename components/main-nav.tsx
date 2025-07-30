@@ -47,18 +47,6 @@ export function MainNav() {
             Meal
           </Link>
           <Link 
-            href="/reports" 
-            className={`text-sm font-medium ${pathname === "/reports" ? "text-foreground" : "text-muted-foreground"}`}
-          >
-            Reports
-          </Link>
-          <Link 
-            href="/settings" 
-            className={`text-sm font-medium ${pathname === "/settings" ? "text-foreground" : "text-muted-foreground"}`}
-          >
-            Settings
-          </Link>
-          <Link 
             href="/profile" 
             className={`text-sm font-medium ${pathname === "/profile" ? "text-foreground" : "text-muted-foreground"}`}
           >
