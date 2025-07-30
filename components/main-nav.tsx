@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useRouter, usePathname } from "next/navigation"
-import { CalendarDays, Utensils, LogOut } from "lucide-react"
+import { CalendarDays, Utensils, LogOut, BarChart3 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/contexts/auth-context"
@@ -51,6 +51,12 @@ export function MainNav() {
             className={`text-sm font-medium ${pathname === "/profile" ? "text-foreground" : "text-muted-foreground"}`}
           >
             Profile
+          </Link>
+          <Link 
+            href="/analytics" 
+            className={`text-sm font-medium ${pathname === "/analytics" ? "text-foreground" : "text-muted-foreground"}`}
+          >
+            Analytics
           </Link>
         </nav>
         <div className="flex items-center gap-2">
