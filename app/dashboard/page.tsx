@@ -12,13 +12,29 @@ import { useDailyNutrition } from "@/app/meal/hooks/useDailyNutrition"
 import { useWeeklyNutrition } from "@/app/meal/hooks/useWeeklyNutrition"
 import { WeeklyCalorieTrendChart } from "@/components/weekly-calorie-trend-chart"
 import { MacroBreakdownChart } from "@/components/macro-breakdown-chart"
+import { useAuth } from "@/contexts/auth-context"
 
 export default function Dashboard() {
-  // User goals/targets (could be fetched from profile API in the future)
-  const targetCalories = 2200
-  const targetProtein = 165
-  const targetCarbs = 275
-  const targetFat = 73
+  const { user } = useAuth()
+
+  // Set nutritional targets based on user's goal
+  let targetCalories: number = 2200
+  let targetProtein: number = 165
+  let targetCarbs: number = 275
+  let targetFat: number = 73
+
+  if (user?.goal === "Weight Loss") {
+    targetCalories = 1800
+    targetProtein = 140
+    targetCarbs = 180
+    targetFat = 60
+  } else if (user?.goal === "Muscle Gain") {
+    targetCalories = 2800
+    targetProtein = 200
+    targetCarbs = 350
+    targetFat = 90
+  }
+
 
   // Get today's date for fetching nutrition data
   const [todayString, setTodayString] = useState('')
@@ -32,9 +48,9 @@ export default function Dashboard() {
   }, [])
 
   // Fetch today's nutrition data
-  const { 
-    nutritionData: todayNutrition, 
-    loading: nutritionLoading, 
+  const {
+    nutritionData: todayNutrition,
+    loading: nutritionLoading,
     error: nutritionError,
     fetchNutritionByDate
   } = useDailyNutrition()
@@ -57,9 +73,9 @@ export default function Dashboard() {
   // Extract today's macro data
   const todayMacros = todayNutrition?.MacroNutrientBreakDown?.[0] || {}
   const currentCalories = todayNutrition?.total_calories || 0
-  const currentProtein = todayMacros.protein || 0
-  const currentCarbs = todayMacros.carbohydrate || 0
-  const currentFat = todayMacros.total_lipid_fe || 0
+  const currentProtein = (todayMacros as any)?.protein || 0
+  const currentCarbs = (todayMacros as any)?.carbohydrate || 0
+  const currentFat = (todayMacros as any)?.total_lipid_fe || 0
 
   // Calculate percentages for progress bars
   const caloriePercentage = Math.min(Math.round((currentCalories / targetCalories) * 100), 100)
@@ -115,10 +131,10 @@ export default function Dashboard() {
                       of {targetProtein}g goal
                     </p>
                     <div className="mt-3">
-                      <Progress 
-                        value={proteinPercentage} 
+                      <Progress
+                        value={proteinPercentage}
                         className="h-2"
-                        style={{ 
+                        style={{
                           backgroundColor: 'rgb(239 246 255)',
                         }}
                       />
@@ -140,10 +156,10 @@ export default function Dashboard() {
                       of {targetCarbs}g goal
                     </p>
                     <div className="mt-3">
-                      <Progress 
-                        value={carbsPercentage} 
+                      <Progress
+                        value={carbsPercentage}
                         className="h-2"
-                        style={{ 
+                        style={{
                           backgroundColor: 'rgb(240 253 244)',
                         }}
                       />
@@ -165,10 +181,10 @@ export default function Dashboard() {
                       of {targetFat}g goal
                     </p>
                     <div className="mt-3">
-                      <Progress 
-                        value={fatPercentage} 
+                      <Progress
+                        value={fatPercentage}
                         className="h-2"
-                        style={{ 
+                        style={{
                           backgroundColor: 'rgb(255 247 237)',
                         }}
                       />
@@ -189,8 +205,8 @@ export default function Dashboard() {
                   </CardHeader>
                   <CardContent>
                     <div className="h-[300px]">
-                      <WeeklyCalorieTrendChart 
-                        data={weeklyData} 
+                      <WeeklyCalorieTrendChart
+                        data={weeklyData}
                         loading={weeklyLoading}
                       />
                     </div>
@@ -212,7 +228,7 @@ export default function Dashboard() {
                   </CardHeader>
                   <CardContent>
                     <div className="h-[300px]">
-                      <MacroBreakdownChart 
+                      <MacroBreakdownChart
                         protein={currentProtein}
                         carbs={currentCarbs}
                         fat={currentFat}
