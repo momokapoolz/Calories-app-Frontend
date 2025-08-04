@@ -18,23 +18,24 @@ export default function Dashboard() {
   const { user } = useAuth()
 
   // Set nutritional targets based on user's goal
-  let targetCalories: number = 2200
-  let targetProtein: number = 165
-  let targetCarbs: number = 275
-  let targetFat: number = 73
+  const [targetCalories, setTargetCalories] = useState(2200)
+  const [targetProtein, setTargetProtein] = useState(165)
+  const [targetCarbs, setTargetCarbs] = useState(275)
+  const [targetFat, setTargetFat] = useState(73)
 
-  if (user?.goal === "Weight Loss") {
-    targetCalories = 1800
-    targetProtein = 140
-    targetCarbs = 180
-    targetFat = 60
-  } else if (user?.goal === "Muscle Gain") {
-    targetCalories = 2800
-    targetProtein = 200
-    targetCarbs = 350
-    targetFat = 90
-  }
-
+  useEffect(() => {
+    if (user?.goal === "Weight Loss") {
+      setTargetCalories(1800);
+      setTargetProtein(140);
+      setTargetCarbs(180);
+      setTargetFat(60);
+    } else if (user?.goal === "Muscle Gain") {
+      setTargetCalories(2800);
+      setTargetProtein(200);
+      setTargetCarbs(350);
+      setTargetFat(90);
+    }
+  }, [user?.goal]);
 
   // Get today's date for fetching nutrition data
   const [todayString, setTodayString] = useState('')
