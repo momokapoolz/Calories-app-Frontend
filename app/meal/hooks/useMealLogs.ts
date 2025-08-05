@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import { MealLog, CreateMealLog, MealNutritionCalculation, AddItemsToMealLogRequest, MealLogItemResponse } from '../types'
-import axios from 'axios'
 import { getErrorMessage } from '@/lib/utils'
+import { mealLogService } from '../services/mealLogService'
 
 export const useMealLogs = () => {
   const { isAuthenticated, user } = useAuth()
@@ -11,19 +11,7 @@ export const useMealLogs = () => {
   const [error, setError] = useState<string | null>(null)
   const [currentUserId, setCurrentUserId] = useState<number | null>(null)
 
-  // Helper function to get auth headers
-  const getAuthHeaders = () => {
-    // Get the access token UUID from localStorage
-    const tokenId = localStorage.getItem('accessToken')
-    
-    return {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      // The backend expects the UUID token ID in the Authorization header
-      // Format: Bearer {token_id}
-      ...(tokenId && { 'Authorization': `Bearer ${tokenId}` })
-    }
-  }
+
 
   // Clear all data when user changes
   const clearData = () => {
@@ -45,10 +33,8 @@ export const useMealLogs = () => {
   const fetchMealLogs = async () => {
     try {
       setLoading(true)
-      const response = await axios.get('/api/meal-logs', {
-        headers: getAuthHeaders()
-      })
-      setMealLogs(response.data)
+      const mealLogs = await mealLogService.getMealLogsByUser()
+      setMealLogs(mealLogs)
       setError(null)
     } catch (err) {
       setError('Failed to fetch meal logs')
@@ -62,10 +48,8 @@ export const useMealLogs = () => {
   const fetchMealLogsByDate = async (date: string) => {
     try {
       setLoading(true)
-      const response = await axios.get(`/api/meal-logs/user/date/${date}`, {
-        headers: getAuthHeaders()
-      })
-      setMealLogs(response.data)
+      const mealLogs = await mealLogService.getMealLogsByUserAndDate(date)
+      setMealLogs(mealLogs)
       setError(null)
     } catch (err) {
       setError('Failed to fetch meal logs for the selected date')
@@ -79,10 +63,8 @@ export const useMealLogs = () => {
   const fetchMealLogsByDateRange = async (startDate: string, endDate: string) => {
     try {
       setLoading(true)
-      const response = await axios.get(`/api/meal-logs?startDate=${startDate}&endDate=${endDate}`, {
-        headers: getAuthHeaders()
-      })
-      setMealLogs(response.data)
+      const mealLogs = await mealLogService.getMealLogsByUserAndDateRange({ startDate, endDate })
+      setMealLogs(mealLogs)
       setError(null)
     } catch (err) {
       setError('Failed to fetch meal logs for the selected date range')
@@ -95,10 +77,8 @@ export const useMealLogs = () => {
   // Get a specific meal log by ID
   const fetchMealLogById = async (id: number): Promise<MealLog | null> => {
     try {
-      const response = await axios.get(`/api/meal-logs/${id}`, {
-        headers: getAuthHeaders()
-      })
-      return response.data
+      const mealLog = await mealLogService.getMealLogById(id)
+      return mealLog
     } catch (err) {
       console.error('Error fetching meal log by ID:', err)
       throw err
@@ -109,15 +89,13 @@ export const useMealLogs = () => {
   const addMealLog = async (data: CreateMealLog): Promise<MealLog> => {
     try {
       setLoading(true)
-      const response = await axios.post('/api/meal-logs', data, {
-        headers: getAuthHeaders()
-      })
+      const response = await mealLogService.createMealLog(data)
       
       // The API returns { meal_log: {...}, items: [...] }
       // We need to combine them into a single MealLog object
       const newMealLog: MealLog = {
-        ...response.data.meal_log,
-        items: response.data.items || []
+        ...response.meal_log,
+        items: response.items || []
       }
       
       setMealLogs(prev => [...prev, newMealLog])
@@ -140,42 +118,8 @@ export const useMealLogs = () => {
     try {
       setLoading(true)
       
-      // Step 1: Update meal type only (if provided)
-      if (data.meal_type) {
-        console.log('📡 Step 1: Updating meal type to:', data.meal_type);
-        const mealTypeResponse = await axios.put(`/api/meal-logs/${id}`, 
-          { meal_type: data.meal_type }, 
-          { headers: getAuthHeaders() }
-        );
-        console.log('✅ Meal type updated:', mealTypeResponse.status);
-      }
-      
-      // Step 2: Handle items separately
-      if (data.items && data.items.length > 0) {
-        console.log('📡 Step 2: Updating items. Deleting all existing items first...');
-        
-        // Delete all existing items from this meal log
-        await axios.delete(`/api/meal-log-items/meal-log/${id}`, {
-          headers: getAuthHeaders()
-        });
-        console.log('✅ Existing items deleted');
-        
-        // Add new items
-        console.log('📡 Adding new items:', data.items);
-        await axios.post(`/api/meal-logs/${id}/items`, 
-          { items: data.items }, 
-          { headers: getAuthHeaders() }
-        );
-        console.log('✅ New items added');
-      }
-      
-      // Step 3: Fetch the updated meal log to return
-      console.log('📡 Step 3: Fetching updated meal log...');
-      const updatedMealResponse = await axios.get(`/api/meal-logs/${id}`, {
-        headers: getAuthHeaders()
-      });
-      
-      const updatedMeal = updatedMealResponse.data;
+      // Use the service to update the meal log
+      const updatedMeal = await mealLogService.updateMealLog(id, data);
       console.log('✅ Updated meal fetched:', updatedMeal);
       
       // Update the meal log in the local state
@@ -198,9 +142,7 @@ export const useMealLogs = () => {
   const deleteMealLog = async (id: number): Promise<void> => {
     try {
       setLoading(true)
-      await axios.delete(`/api/meal-logs/${id}`, {
-        headers: getAuthHeaders()
-      })
+      await mealLogService.deleteMealLog(id)
       
       // Remove the meal log from the local state
       setMealLogs(prev => prev.filter(log => log.id !== id))
@@ -218,10 +160,8 @@ export const useMealLogs = () => {
   // Get nutrition calculation for a specific meal
   const fetchMealNutrition = async (mealLogId: number): Promise<MealNutritionCalculation> => {
     try {
-      const response = await axios.get(`/api/nutrition/meal/${mealLogId}`, {
-        headers: getAuthHeaders()
-      })
-      return response.data
+      const nutrition = await mealLogService.getMealNutritionCalculation(mealLogId)
+      return nutrition
     } catch (err) {
       console.error('Error fetching meal nutrition:', err)
       throw err
@@ -231,10 +171,8 @@ export const useMealLogs = () => {
   // Add items to an existing meal log
   const addItemsToMealLog = async (mealLogId: number, data: AddItemsToMealLogRequest): Promise<MealLogItemResponse[]> => {
     try {
-      const response = await axios.post(`/api/meal-logs/${mealLogId}/items`, data, {
-        headers: getAuthHeaders()
-      })
-      return response.data
+      const items = await mealLogService.addItemsToMealLog(mealLogId, data)
+      return items
     } catch (err) {
       console.error('Error adding items to meal log:', err)
       throw err
@@ -242,17 +180,8 @@ export const useMealLogs = () => {
   }
 
   // Helper function to format date for API calls (YYYY-MM-DD)
-  // This ensures consistent date formatting using local date components
   const formatDateForAPI = (date: Date): string => {
-    // Use local date components to preserve the user's intended calendar date
-    const year = date.getFullYear();
-    // Add 1 to month because getMonth() returns 0-11
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    
-    const formattedDate = `${year}-${month}-${day}`;
-    console.log(`Formatting date for meal logs: ${date.toISOString()} → ${formattedDate} (local: ${date.toLocaleDateString()})`);
-    return formattedDate;
+    return mealLogService.formatDateForAPI(date)
   }
 
   // Load meal logs when component mounts or authentication changes

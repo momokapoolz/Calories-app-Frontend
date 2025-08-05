@@ -1,8 +1,9 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import { DailyNutritionSummary } from '../types'
-import axios from 'axios'
 import { getErrorMessage } from '@/lib/utils'
+import { dailyNutritionService } from '../services/dailyNutritionService'
+import { mealLogService } from '../services/mealLogService'
 
 export const useDailyNutrition = () => {
   const { isAuthenticated, user } = useAuth()
@@ -32,36 +33,11 @@ export const useDailyNutrition = () => {
     }
   }, [user?.id, currentUserId, clearAllData])
 
-  // Helper function to get auth headers
-  const getAuthHeaders = useCallback(() => {
-    // Get the access token UUID from localStorage
-    const tokenId = localStorage.getItem('accessToken')
-    
-    if (!tokenId) {
-      console.warn('No access token UUID found in localStorage')
-    }
-    
-    return {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      // The backend expects the UUID token ID in the Authorization header
-      // Format: Bearer {token_id}
-      ...(tokenId && { 'Authorization': `Bearer ${tokenId}` })
-    }
-  }, [])
+
 
   // Helper function to format date for API calls (YYYY-MM-DD)
-  // This ensures consistent date formatting using local date components
   const formatDateForAPI = useCallback((date: Date): string => {
-    // Use local date components to preserve the user's intended calendar date
-    const year = date.getFullYear();
-    // Add 1 to month because getMonth() returns 0-11
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    
-    const formattedDate = `${year}-${month}-${day}`;
-    console.log(`Formatting date: ${date.toISOString()} → ${formattedDate} (local: ${date.toLocaleDateString()})`);
-    return formattedDate;
+    return mealLogService.formatDateForAPI(date)
   }, [])
 
   // Fetch nutrition data for a specific date with request deduplication
@@ -90,30 +66,17 @@ export const useDailyNutrition = () => {
         setLoading(true)
         setError(null)
         
-        const headers = getAuthHeaders()
         console.log(`Fetching nutrition data for date: ${date} and user: ${user?.email || 'unknown'}`)
-        console.log('Using auth headers:', {
-          ...headers,
-          'Authorization': headers.Authorization ? `${headers.Authorization.substring(0, 15)}...` : 'none'
-        })
         
-        const response = await axios.get(`/api/nutrition/date/${date}`, {
-          headers,
-          params: {
-            // Add timestamp to prevent caching issues when switching between users
-            _t: new Date().getTime()
-          }
-        })
+        const data = await dailyNutritionService.getDailyNutrition(date)
         
         console.log(`Nutrition data received for date: ${date}`, {
-          status: response.status,
-          hasData: !!response.data,
-          userId: response.data?.user_id || 'unknown',
-          totalCalories: response.data?.total_calories || 0,
-          mealCount: response.data?.MealBreakdown?.length || 0
+          hasData: !!data,
+          userId: data?.user_id || 'unknown',
+          totalCalories: data?.total_calories || 0,
+          mealCount: data?.MealBreakdown?.length || 0
         })
         
-        const data = response.data as DailyNutritionSummary
         setNutritionData(data)
         return data
       } catch (err: any) {
@@ -144,7 +107,7 @@ export const useDailyNutrition = () => {
     // Store the promise to prevent duplicate requests
     pendingRequests.current.set(requestKey, requestPromise)
     return requestPromise
-  }, [isAuthenticated, getAuthHeaders, user])
+  }, [isAuthenticated, user])
 
   // Get today's nutrition data
   const fetchTodaysNutrition = useCallback(async (): Promise<DailyNutritionSummary | null> => {

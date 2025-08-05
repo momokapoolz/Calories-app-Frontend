@@ -1,8 +1,8 @@
 import { useState, useCallback, useEffect } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import { DailyNutritionSummary } from '../types'
-import axios from 'axios'
 import { getErrorMessage } from '@/lib/utils'
+import { dailyNutritionService } from '../services/dailyNutritionService'
 
 export interface WeeklyNutritionData {
   date: string
@@ -18,24 +18,11 @@ export const useWeeklyNutrition = () => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Helper function to get auth headers
-  const getAuthHeaders = useCallback(() => {
-    const tokenId = localStorage.getItem('accessToken')
-    
-    return {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      ...(tokenId && { 'Authorization': `Bearer ${tokenId}` })
-    }
-  }, [])
+
 
   // Helper function to format date for API calls (YYYY-MM-DD)
   const formatDateForAPI = useCallback((date: Date): string => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    
-    return `${year}-${month}-${day}`;
+    return dailyNutritionService.formatDateForAPI(date)
   }, [])
 
   // Get date range for the past 7 days
@@ -64,21 +51,13 @@ export const useWeeklyNutrition = () => {
       setError(null)
       
       const dates = getWeekDateRange()
-      const headers = getAuthHeaders()
       
       console.log(`Fetching weekly nutrition data for dates:`, dates)
       
       // Fetch nutrition data for each day in parallel
       const promises = dates.map(async (date) => {
         try {
-          const response = await axios.get(`/api/nutrition/date/${date}`, {
-            headers,
-            params: {
-              _t: new Date().getTime() // Prevent caching
-            }
-          })
-          
-          const data = response.data as DailyNutritionSummary
+          const data = await dailyNutritionService.getDailyNutrition(date)
           
           // Extract macro data from the response
           const macros = data.MacroNutrientBreakDown?.[0] || {}
@@ -92,7 +71,7 @@ export const useWeeklyNutrition = () => {
           }
         } catch (err: any) {
           // If no data for a specific day, return zeros
-          if (err.response?.status === 404) {
+          if (err.message?.includes('404') || err.response?.status === 404) {
             console.log(`No nutrition data for ${date}`)
             return {
               date,
@@ -120,7 +99,7 @@ export const useWeeklyNutrition = () => {
     } finally {
       setLoading(false)
     }
-  }, [isAuthenticated, getAuthHeaders, getWeekDateRange])
+  }, [isAuthenticated, getWeekDateRange])
 
   // Get today's nutrition data
   const getTodaysNutrition = useCallback((): WeeklyNutritionData | null => {
